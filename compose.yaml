@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: marketplace
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "info0806" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      default:
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      args:
+        UID: ${UID-1000}
+        GID: ${GID-1000}
+    init: true
+    working_dir: /app/packages/backend
+    command: sh -c "alembic upgrade head && uvicorn main:app --reload --host 0.0.0.0 --port 8080"
+    environment:
+      DATABASE__HOST: postgres
+      DATABASE__PORT: 5432
+      DATABASE__USER: marketplace
+      DATABASE__PASSWORD: marketplace
+      DATABASE__NAME: marketplace
+      MARKETPLACE__SITE_ID: site-local
+      MARKETPLACE__SITE_NAME: Local Site
+      GATEWAY__URL: gateway:50061
+    ports:
+      - "8090:8080"
+    env_file:
+      - path: packages/backend/.env
+        required: false
+    volumes:
+      - ./packages/backend:/app/packages/backend
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz" ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+    networks:
+      default:
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        UID: ${UID-1000}
+        GID: ${GID-1000}
+    init: true
+    ports:
+      - "3005:3000"
+    working_dir: /app/packages/frontend
+    env_file:
+      - path: packages/frontend/.env
+        required: false
+    environment:
+      INTERNAL_API_KEY: EPQIKdDY8Dz/4EW74UhGXn+HZpy/EkNgFRxBt+QplOQ/zs8SPnrURWdNLQhk3MaUK2KoabEbDHQAPo01ZU+BkQ==
+      MARKETPLACE_API_URL: http://backend:8080
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/packages/frontend/node_modules
+    networks:
+      default:
+    depends_on:
+      api:
+        condition: service_healthy
+      marketplace-backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  frontend_node_modules:

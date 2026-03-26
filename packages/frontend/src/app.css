@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+    --radius: 0.625rem;
+
+    --background: oklch(0.95 0.005 85);
+    --foreground: oklch(0.1294 0.0273 261.67);
+    --surface: oklch(1 0 0);
+
+    --card: oklch(0.9771 0.0074 80.72);
+    --card-sidebar: oklch(0.9448 0.008 73.74);
+    --card-sidebar-active: oklch(0.8101 0.1084 77.44 / 15%);
+    --card-foreground: oklch(0.1294 0.0273 261.67);
+
+    --popover: oklch(0.95 0.005 85);
+    --popover-foreground: oklch(0.1294 0.0273 261.67);
+
+    --primary: oklch(0.2103 0.0318 264.65);
+    --primary-foreground: oklch(0.9843 0.0017 247.84);
+
+    --secondary: oklch(0.9671 0.0029 264.54);
+    --secondary-foreground: oklch(0.2103 0.0318 264.65);
+
+    --muted: oklch(0.9671 0.0029 264.54);
+    --muted-foreground: oklch(0.5764 0.0405 66.88);
+
+    --accent: oklch(0.6016 0.1311 60.42);
+    --accent2: oklch(0.7216 0.1011 50.42);
+    --accent-foreground: oklch(0.9843 0.0017 247.84);
+
+    --destructive: oklch(0.5771 0.2151 27.32);
+    --destructive-foreground: oklch(0.9843 0.0017 247.84);
+
+    --border: oklch(0.2548 0.0634 22.66 / 15%);
+    --input: oklch(0.9278 0.0058 264.53);
+    --ring: oklch(0.1294 0.0273 261.67);
+
+    --sidebar-background: oklch(0.9848 0 0);
+    --sidebar-foreground: oklch(0.3705 0.012 285.8);
+
+    --sidebar-primary: oklch(0.2103 0.0059 285.88);
+    --sidebar-primary-foreground: oklch(0.9848 0 0);
+
+    --sidebar-accent: oklch(0.9676 0.0013 286.38);
+    --sidebar-accent-foreground: oklch(0.2103 0.0059 285.88);
+
+    --sidebar-border: oklch(0.9278 0.0058 264.53);
+    --sidebar-ring: oklch(0.6232 0.1879 259.8);
+}
+
+.dark {
+    --background: oklch(0.1815 0 0);
+    --foreground: oklch(0.8551 0.0207 100.69);
+    --surface: oklch(0.2123 0.018 300.11);
+
+    --card: oklch(0.2476 0.021 297.34);
+    --card-sidebar: oklch(0.2476 0.021 297.34);
+    --card-sidebar-active: oklch(0.8101 0.1084 77.44 / 15%);
+    --card-foreground: oklch(0.8551 0.0207 100.69);
+
+    --popover: oklch(0.1294 0.0273 261.67);
+    --popover-foreground: oklch(0.8551 0.0207 100.69);
+
+    --primary: oklch(0.8551 0.0207 100.69);
+    --primary-foreground: oklch(0.2103 0.0318 264.65);
+
+    --secondary: oklch(0.2784 0.0296 256.85);
+    --secondary-foreground: oklch(0.8551 0.0207 100.69);
+
+    --muted: oklch(0.2784 0.0296 256.85);
+    --muted-foreground: oklch(0.6706 0.0457 303.37);
+
+    --accent: oklch(0.8101 0.1084 77.44);
+    --accent2: oklch(0.6801 0.0884 67.44);
+    --accent-foreground: oklch(0.1776 0 0);
+
+    --destructive: oklch(0.3959 0.1331 25.72);
+    --destructive-foreground: oklch(0.8551 0.0207 100.69);
+
+    --border: oklch(1 0 0 / 7%);
+    --input: oklch(0.5378 0.0148 262.98);
+    --ring: oklch(0.8715 0.0094 258.34);
+
+    --sidebar-background: oklch(0.2103 0.0059 285.88);
+    --sidebar-foreground: oklch(0.8551 0.0207 100.69);
+
+    --sidebar-primary: oklch(0.4878 0.217 264.39);
+    --sidebar-primary-foreground: oklch(0.8551 0.0207 100.69);
+
+    --sidebar-accent: oklch(0.2741 0.0055 286.03);
+    --sidebar-accent-foreground: oklch(0.8551 0.0207 100.69);
+
+    --sidebar-border: oklch(0.2741 0.0055 286.03);
+    --sidebar-ring: oklch(0.6232 0.1879 259.8);
+}
+
+@theme inline {
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-surface: var(--surface);
+    --color-card: var(--card);
+    --color-card-sidebar: var(--card-sidebar);
+    --color-card-sidebar-active: var(--card-sidebar-active);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent2: var(--accent2);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar-background);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    /* Font family with fallbacks for better loading experience */
+    --font-title: 'Playfair Display', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground;
+        /* Apply title font with fallbacks */
+        font-family:
+                'DM Sans',
+                system-ui,
+                -apple-system,
+                sans-serif;
+    }
+
+    /* Font declarations with swap for better performance */
+    @font-face {
+        font-family: 'ExpletusSans';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap; /* Shows fallback font while custom font loads */
+        src: url('/fonts/ExpletusSans-Medium.ttf') format('truetype');
+    }
+
+    @font-face {
+        font-family: 'Playfair Display';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap; /* Shows fallback font while custom font loads */
+        src: url('/fonts/PlayfairDisplay-VariableFont_wght.ttf') format('truetype');
+    }
+
+    @font-face {
+        font-family: 'Playfair Display';
+        font-style: italic;
+        font-weight: 400;
+        font-display: swap; /* Shows fallback font while custom font loads */
+        src: url('/fonts/PlayfairDisplay-Italic-VariableFont_wght.ttf') format('truetype');
+    }
+}

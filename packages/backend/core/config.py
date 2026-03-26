@@ -8,8 +8,8 @@ class DatabaseConfig(BaseModel):
 
     host: str = "postgres"
     port: int = 5432
-    user: str = "info0806"
-    password: str = "info0806"
+    user: str = "marketplace"
+    password: str = "marketplace"
     name: str = "marketplace"
 
     @property

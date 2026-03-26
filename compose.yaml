@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "info0806" ]
+      test: [ "CMD", "pg_isready", "-U", "marketplace" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -79,9 +79,7 @@ services:
     networks:
       default:
     depends_on:
-      api:
-        condition: service_healthy
-      marketplace-backend:
+      backend:
         condition: service_healthy
 
 volumes:

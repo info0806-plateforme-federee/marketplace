@@ -17,6 +17,24 @@ services:
     networks:
       default:
 
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: ${TS_HOSTNAME:-marketplace}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+    networks:
+      default:
+
   backend:
     build:
       context: .
@@ -25,6 +43,7 @@ services:
         UID: ${UID-1000}
         GID: ${GID-1000}
     init: true
+    network_mode: service:tailscale
     working_dir: /app/packages/backend
     command: sh -c "alembic upgrade head && uvicorn main:app --reload --host 0.0.0.0 --port 8080"
     environment:
@@ -35,9 +54,7 @@ services:
       DATABASE__NAME: marketplace
       MARKETPLACE__SITE_ID: site-local
       MARKETPLACE__SITE_NAME: Local Site
-      GATEWAY__URL: gateway:50061
-    ports:
-      - "8090:8080"
+      GATEWAY__URL: ${GATEWAY_URL:-node:50052}
     env_file:
       - path: packages/backend/.env
         required: false
@@ -51,8 +68,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      default:
+      tailscale:
+        condition: service_started
 
   frontend:
     build:
@@ -70,16 +87,17 @@ services:
         required: false
     environment:
       INTERNAL_API_KEY: EPQIKdDY8Dz/4EW74UhGXn+HZpy/EkNgFRxBt+QplOQ/zs8SPnrURWdNLQhk3MaUK2KoabEbDHQAPo01ZU+BkQ==
-      MARKETPLACE_API_URL: http://backend:8080
+      MARKETPLACE_API_URL: http://tailscale:8080
     volumes:
       - .:/app
       - frontend_node_modules:/app/packages/frontend/node_modules
     networks:
       default:
     depends_on:
-      backend:
-        condition: service_healthy
+      tailscale:
+        condition: service_started
 
 volumes:
   postgres_data:
   frontend_node_modules:
+  tailscale_state:

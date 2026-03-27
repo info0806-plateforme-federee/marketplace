@@ -45,7 +45,7 @@ class MarketplaceConfig(BaseModel):
 class GatewayConfig(BaseModel):
     """gRPC gateway connection configuration."""
 
-    url: str = "gateway:50061"
+    url: str = "node:50052"
 
 
 class Settings(BaseSettings):

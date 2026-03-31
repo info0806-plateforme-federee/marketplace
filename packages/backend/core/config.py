@@ -8,8 +8,8 @@ class DatabaseConfig(BaseModel):
 
     host: str = "postgres"
     port: int = 5432
-    user: str = "info0806"
-    password: str = "info0806"
+    user: str = "marketplace"
+    password: str = "marketplace"
     name: str = "marketplace"
 
     @property
@@ -45,7 +45,7 @@ class MarketplaceConfig(BaseModel):
 class GatewayConfig(BaseModel):
     """gRPC gateway connection configuration."""
 
-    url: str = "gateway:50061"
+    url: str = "node:50052"
 
 
 class Settings(BaseSettings):

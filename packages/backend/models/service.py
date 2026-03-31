@@ -80,6 +80,16 @@ class Service(Base):
     output_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     max_concurrency: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timeout_s: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Execution defaults — populated by publisher, merged into job at invocation
+    image: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    command: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    default_args: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    default_env: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    min_cpu: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    min_gpu: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    min_mem_mb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     terms_of_use: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

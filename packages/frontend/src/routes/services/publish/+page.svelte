@@ -103,6 +103,24 @@
 			<Textarea name="output_schema" label={m.publish_output_schema()} rows={6} />
 		</div>
 
+		<!-- Execution Configuration -->
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+			<Input name="image" label="Docker Image" placeholder="python:3.14-slim, alpine:latest" />
+			<Input name="command" label="Command" placeholder="Command to execute in the container" />
+		</div>
+
+		<Textarea name="code" label="Code" placeholder="Inline code to execute (alternative to image)" rows={6} />
+
+		<Textarea name="default_env" label="Default Environment" placeholder={`{"KEY": "value"}`} rows={4} />
+
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<Input name="min_cpu" label="Min CPU" type="number" placeholder="0" />
+			<Input name="min_mem_mb" label="Min Memory MB" type="number" placeholder="0" />
+			<Input name="min_gpu" label="Min GPU" type="number" placeholder="0" />
+		</div>
+
+		<Input name="retry_count" label="Retry Count" type="number" placeholder="0" />
+
 		<!-- Advanced -->
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<Input name="max_concurrency" label={m.publish_max_concurrency()} type="number" />

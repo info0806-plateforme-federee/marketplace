@@ -56,6 +56,15 @@ async def create_service(
         output_schema=body.output_schema,
         max_concurrency=body.max_concurrency,
         timeout_s=body.timeout_s,
+        image=body.image,
+        code=body.code,
+        command=body.command,
+        default_args=body.default_args,
+        default_env=body.default_env,
+        min_cpu=body.min_cpu,
+        min_gpu=body.min_gpu,
+        min_mem_mb=body.min_mem_mb,
+        retry_count=body.retry_count,
         terms_of_use=body.terms_of_use,
     )
     db.add(service)

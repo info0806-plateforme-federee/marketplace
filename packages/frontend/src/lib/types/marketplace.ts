@@ -57,6 +57,15 @@ export interface Service {
 	output_schema: Record<string, unknown>;
 	max_concurrency: number | null;
 	timeout_s: number | null;
+	image: string | null;
+	code: string | null;
+	command: string | null;
+	default_args: Record<string, unknown>;
+	default_env: Record<string, string>;
+	min_cpu: number | null;
+	min_gpu: number | null;
+	min_mem_mb: number | null;
+	retry_count: number;
 	terms_of_use: string | null;
 	created_at: string;
 	updated_at: string;
@@ -131,6 +140,15 @@ export interface CreateServiceRequest {
 	output_schema?: Record<string, unknown>;
 	max_concurrency?: number | null;
 	timeout_s?: number | null;
+	image?: string | null;
+	code?: string | null;
+	command?: string | null;
+	default_args?: Record<string, unknown>;
+	default_env?: Record<string, string>;
+	min_cpu?: number | null;
+	min_gpu?: number | null;
+	min_mem_mb?: number | null;
+	retry_count?: number;
 	terms_of_use?: string | null;
 }
 

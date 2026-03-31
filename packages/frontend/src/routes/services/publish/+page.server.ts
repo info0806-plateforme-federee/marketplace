@@ -31,6 +31,15 @@ export const actions: Actions = {
 		const output_schema_raw = formData.get('output_schema') as string;
 		const max_concurrency_raw = formData.get('max_concurrency') as string;
 		const timeout_s_raw = formData.get('timeout_s') as string;
+		const image = formData.get('image') as string;
+		const command = formData.get('command') as string;
+		const code = formData.get('code') as string;
+		const default_env_raw = formData.get('default_env') as string;
+		const default_args_raw = formData.get('default_args') as string;
+		const min_cpu_raw = formData.get('min_cpu') as string;
+		const min_gpu_raw = formData.get('min_gpu') as string;
+		const min_mem_mb_raw = formData.get('min_mem_mb') as string;
+		const retry_count_raw = formData.get('retry_count') as string;
 		const terms_of_use = formData.get('terms_of_use') as string;
 
 		if (!name || !category || !service_type || !price_type || !visibility || !execution_mode) {
@@ -39,9 +48,13 @@ export const actions: Actions = {
 
 		let input_schema = {};
 		let output_schema = {};
+		let default_env = {};
+		let default_args = {};
 		try {
 			if (input_schema_raw) input_schema = JSON.parse(input_schema_raw);
 			if (output_schema_raw) output_schema = JSON.parse(output_schema_raw);
+			if (default_env_raw) default_env = JSON.parse(default_env_raw);
+			if (default_args_raw) default_args = JSON.parse(default_args_raw);
 		} catch {
 			return fail(400, { error: 'Invalid JSON in schema fields' });
 		}
@@ -55,6 +68,10 @@ export const actions: Actions = {
 		const price_amount = price_amount_raw ? Number(price_amount_raw) : null;
 		const max_concurrency = max_concurrency_raw ? Number(max_concurrency_raw) : null;
 		const timeout_s = timeout_s_raw ? Number(timeout_s_raw) : null;
+		const min_cpu = min_cpu_raw ? Number(min_cpu_raw) : undefined;
+		const min_gpu = min_gpu_raw ? Number(min_gpu_raw) : undefined;
+		const min_mem_mb = min_mem_mb_raw ? Number(min_mem_mb_raw) : undefined;
+		const retry_count = retry_count_raw ? Number(retry_count_raw) : undefined;
 
 		try {
 			const service = await client.createService({
@@ -78,6 +95,15 @@ export const actions: Actions = {
 				output_schema,
 				max_concurrency,
 				timeout_s,
+				image: image || undefined,
+				command: command || undefined,
+				code: code || undefined,
+				default_env,
+				default_args,
+				min_cpu,
+				min_gpu,
+				min_mem_mb,
+				retry_count,
 				terms_of_use: terms_of_use || undefined
 			});
 			redirect(303, localizeHref(`/services/${service.slug}`));

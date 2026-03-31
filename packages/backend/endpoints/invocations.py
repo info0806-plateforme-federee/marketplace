@@ -63,9 +63,33 @@ async def invoke_service(
     await db.refresh(invocation)
 
     # Forward invocation to the gateway → scheduler
+    # Merge service execution defaults with invoker-provided input_payload.
+    # Service defaults act as the base; invoker values override.
+    merged_payload: dict = {}
+    if service.image:
+        merged_payload["image"] = service.image
+    if service.code:
+        merged_payload["code"] = service.code
+    if service.command:
+        merged_payload["command"] = service.command
+    if service.default_args:
+        merged_payload["args"] = dict(service.default_args)
+    if service.default_env:
+        merged_payload["env"] = dict(service.default_env)
+    if service.min_cpu is not None:
+        merged_payload["min_cpu"] = service.min_cpu
+    if service.min_gpu is not None:
+        merged_payload["min_gpu"] = service.min_gpu
+    if service.min_mem_mb is not None:
+        merged_payload["min_mem_mb"] = service.min_mem_mb
+    if service.retry_count:
+        merged_payload["retry_count"] = service.retry_count
+    # Invoker payload overrides service defaults
+    merged_payload.update(body.input_payload)
+
     stub = gateway_pb2_grpc.GatewayServiceStub(request.app.state.grpc_channel)
     payload_struct = Struct()
-    payload_struct.update(body.input_payload)
+    payload_struct.update(merged_payload)
 
     grpc_request = gateway_pb2.InvokeServiceRequest(
         invocation_id=invocation.id,

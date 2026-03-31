@@ -32,13 +32,13 @@ export const actions: Actions = {
 						.split(',')
 						.map((t) => t.trim())
 						.filter(Boolean);
-				} else if (key === 'input_schema' || key === 'output_schema') {
+				} else if (key === 'input_schema' || key === 'output_schema' || key === 'default_env' || key === 'default_args') {
 					try {
 						updateData[key] = JSON.parse(value as string);
 					} catch {
 						return fail(400, { error: `Invalid JSON in ${key}` });
 					}
-				} else if (key === 'price_amount' || key === 'max_concurrency' || key === 'timeout_s') {
+				} else if (key === 'price_amount' || key === 'max_concurrency' || key === 'timeout_s' || key === 'min_cpu' || key === 'min_gpu' || key === 'min_mem_mb' || key === 'retry_count') {
 					updateData[key] = value ? Number(value) : null;
 				} else {
 					updateData[key] = value;

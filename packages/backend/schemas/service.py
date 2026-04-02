@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from models.service import ExecutionMode, PriceType, ServiceStatus, ServiceType, Visibility
 from schemas.site import SiteResponse
@@ -38,15 +38,6 @@ class CreateServiceRequest(BaseModel):
     output_schema: dict = {}
     max_concurrency: int | None = None
     timeout_s: int | None = None
-    image: str | None = None
-    code: str | None = None
-    command: str | None = None
-    default_args: dict = Field(default_factory=dict)
-    default_env: dict = Field(default_factory=dict)
-    min_cpu: int | None = None
-    min_gpu: int | None = None
-    min_mem_mb: int | None = None
-    retry_count: int = 0
     terms_of_use: str | None = None
 
 
@@ -69,15 +60,6 @@ class UpdateServiceRequest(BaseModel):
     output_schema: dict | None = None
     max_concurrency: int | None = None
     timeout_s: int | None = None
-    image: str | None = None
-    code: str | None = None
-    command: str | None = None
-    default_args: dict | None = None
-    default_env: dict | None = None
-    min_cpu: int | None = None
-    min_gpu: int | None = None
-    min_mem_mb: int | None = None
-    retry_count: int | None = None
     terms_of_use: str | None = None
 
 
@@ -103,15 +85,6 @@ class ServiceResponse(BaseModel):
     output_schema: dict
     max_concurrency: int | None
     timeout_s: int | None
-    image: str | None = None
-    code: str | None = None
-    command: str | None = None
-    default_args: dict = Field(default_factory=dict)
-    default_env: dict = Field(default_factory=dict)
-    min_cpu: int | None = None
-    min_gpu: int | None = None
-    min_mem_mb: int | None = None
-    retry_count: int = 0
     terms_of_use: str | None
     created_at: datetime
     updated_at: datetime

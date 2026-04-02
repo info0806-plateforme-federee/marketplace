@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 import grpc
@@ -23,6 +24,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["invocations"])
 
+# Mapping from node job statuses to marketplace invocation statuses
+_JOB_STATUS_MAP = {
+    "available": InvocationStatus.accepted.value,
+    "assigned": InvocationStatus.accepted.value,
+    "pending": InvocationStatus.accepted.value,
+    "processing": InvocationStatus.running.value,
+    "done": InvocationStatus.succeeded.value,
+    "failed": InvocationStatus.failed.value,
+}
+
 
 def _estimate_cost(service: Service) -> Decimal | None:
     """Compute a cost estimate based on the service pricing model."""
@@ -33,6 +44,79 @@ def _estimate_cost(service: Service) -> Decimal | None:
         return service.price_amount
     # time-based: cost depends on execution duration, unknown upfront
     return None
+
+
+async def refresh_invocation_status(
+    invocation: Invocation,
+    grpc_channel: grpc.aio.Channel,
+    db: AsyncSession,
+) -> None:
+    """Poll the gateway for job status and update the invocation."""
+    if not invocation.job_id:
+        return
+
+    stub = gateway_pb2_grpc.GatewayServiceStub(grpc_channel)
+    try:
+        resp = await stub.GetJobStatus(
+            gateway_pb2.GetJobStatusRequest(job_id=invocation.job_id)
+        )
+    except grpc.RpcError as e:
+        logger.warning(
+            "Failed to poll status for invocation %s (job %s): %s",
+            invocation.id, invocation.job_id, e,
+        )
+        return
+
+    previous_status = invocation.status
+    new_status = _JOB_STATUS_MAP.get(resp.status, previous_status)
+    changed = False
+
+    if new_status != previous_status:
+        invocation.status = new_status
+        changed = True
+
+    if resp.result_payload and resp.result_payload.fields:
+        result_payload = dict(resp.result_payload)
+        if invocation.result_payload != result_payload:
+            invocation.result_payload = result_payload
+            changed = True
+
+    if resp.error_message and invocation.error_message != resp.error_message:
+        invocation.error_message = resp.error_message
+        changed = True
+
+    if resp.started_at:
+        started_at = datetime.fromisoformat(resp.started_at)
+        if invocation.started_at != started_at:
+            invocation.started_at = started_at
+            changed = True
+
+    if resp.ended_at:
+        ended_at = datetime.fromisoformat(resp.ended_at)
+        if invocation.ended_at != ended_at:
+            invocation.ended_at = ended_at
+            changed = True
+
+    if not changed:
+        return
+
+    # Compute final cost for time-based pricing
+    if (
+        new_status == InvocationStatus.succeeded.value
+        and invocation.cost_estimated is not None
+        and invocation.cost_final != invocation.cost_estimated
+    ):
+        invocation.cost_final = invocation.cost_estimated
+        changed = True
+
+    if not changed:
+        return
+
+    await db.commit()
+    logger.info(
+        "Invocation %s updated: %s → %s",
+        invocation.id, previous_status, invocation.status,
+    )
 
 
 @router.post("/services/{slug}/invoke", response_model=InvocationResponse, status_code=status.HTTP_201_CREATED)
@@ -47,6 +131,8 @@ async def invoke_service(
     service = result.scalar_one_or_none()
     if service is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+    if service.visibility != "public":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Service is not publicly accessible")
 
     invocation = Invocation(
         id=str(uuid.uuid7()),
@@ -62,34 +148,11 @@ async def invoke_service(
     await db.commit()
     await db.refresh(invocation)
 
-    # Forward invocation to the gateway → scheduler
-    # Merge service execution defaults with invoker-provided input_payload.
-    # Service defaults act as the base; invoker values override.
-    merged_payload: dict = {}
-    if service.image:
-        merged_payload["image"] = service.image
-    if service.code:
-        merged_payload["code"] = service.code
-    if service.command:
-        merged_payload["command"] = service.command
-    if service.default_args:
-        merged_payload["args"] = dict(service.default_args)
-    if service.default_env:
-        merged_payload["env"] = dict(service.default_env)
-    if service.min_cpu is not None:
-        merged_payload["min_cpu"] = service.min_cpu
-    if service.min_gpu is not None:
-        merged_payload["min_gpu"] = service.min_gpu
-    if service.min_mem_mb is not None:
-        merged_payload["min_mem_mb"] = service.min_mem_mb
-    if service.retry_count:
-        merged_payload["retry_count"] = service.retry_count
-    # Invoker payload overrides service defaults
-    merged_payload.update(body.input_payload)
-
+    # Forward invocation to the gateway → scheduler.
+    # Execution config now lives on the provider node; send input_payload as-is.
     stub = gateway_pb2_grpc.GatewayServiceStub(request.app.state.grpc_channel)
     payload_struct = Struct()
-    payload_struct.update(merged_payload)
+    payload_struct.update(body.input_payload)
 
     grpc_request = gateway_pb2.InvokeServiceRequest(
         invocation_id=invocation.id,
@@ -166,22 +229,38 @@ async def list_invocations(
 
 
 @router.get("/invocations/{invocation_id}", response_model=InvocationResponse)
-async def get_invocation(invocation_id: str, db: AsyncSession = Depends(get_db)) -> Invocation:
-    """Return a single invocation by ID."""
+async def get_invocation(
+    invocation_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Invocation:
+    """Return a single invocation by ID, auto-refreshing status if pending."""
     result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
     invocation = result.scalar_one_or_none()
     if invocation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
+
+    if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
+        await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
+        await db.refresh(invocation)
+
     return invocation
 
 
 @router.get("/invocations/{invocation_id}/result", response_model=InvocationResultResponse)
 async def get_invocation_result(
-    invocation_id: str, db: AsyncSession = Depends(get_db)
+    invocation_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
 ) -> InvocationResultResponse:
     """Return the result summary for a completed invocation."""
     result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
     invocation = result.scalar_one_or_none()
     if invocation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
+
+    if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
+        await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
+        await db.refresh(invocation)
+
     return InvocationResultResponse.model_validate(invocation)

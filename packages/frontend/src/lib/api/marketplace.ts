@@ -115,8 +115,9 @@ export function createMarketplaceClient(
 			return request<PaginatedResponse<ServiceSummary>>(`/services${qs}`);
 		},
 
-		getService(slug: string): Promise<Service> {
-			return request<Service>(`/services/${slug}`);
+		getService(slug: string, includePrivate = false): Promise<Service> {
+			const qs = includePrivate ? '?include_private=true' : '';
+			return request<Service>(`/services/${slug}${qs}`);
 		},
 
 		createService(data: CreateServiceRequest): Promise<Service> {

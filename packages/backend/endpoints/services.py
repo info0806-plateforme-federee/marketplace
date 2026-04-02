@@ -3,13 +3,15 @@ from __future__ import annotations
 import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import grpc
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slugify import slugify
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.database import get_db
+from gateway_stubs import gateway_pb2, gateway_pb2_grpc
 from models.service import Service, ServiceStatus
 from schemas import PaginatedResponse
 from schemas.service import (
@@ -56,15 +58,6 @@ async def create_service(
         output_schema=body.output_schema,
         max_concurrency=body.max_concurrency,
         timeout_s=body.timeout_s,
-        image=body.image,
-        code=body.code,
-        command=body.command,
-        default_args=body.default_args,
-        default_env=body.default_env,
-        min_cpu=body.min_cpu,
-        min_gpu=body.min_gpu,
-        min_mem_mb=body.min_mem_mb,
-        retry_count=body.retry_count,
         terms_of_use=body.terms_of_use,
     )
     db.add(service)
@@ -140,7 +133,9 @@ async def list_services(
 @router.get("/{slug}/pricing", response_model=ServicePricingResponse)
 async def get_service_pricing(slug: str, db: AsyncSession = Depends(get_db)) -> ServicePricingResponse:
     """Return pricing details for a service."""
-    result = await db.execute(select(Service).where(Service.slug == slug))
+    result = await db.execute(
+        select(Service).where(Service.slug == slug, Service.visibility == "public")
+    )
     service = result.scalar_one_or_none()
     if service is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
@@ -148,9 +143,16 @@ async def get_service_pricing(slug: str, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.get("/{slug}", response_model=ServiceResponse)
-async def get_service(slug: str, db: AsyncSession = Depends(get_db)) -> Service:
+async def get_service(
+    slug: str,
+    include_private: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+) -> Service:
     """Return a single service by its slug."""
-    result = await db.execute(select(Service).where(Service.slug == slug))
+    query = select(Service).where(Service.slug == slug)
+    if not include_private:
+        query = query.where(Service.visibility == "public")
+    result = await db.execute(query)
     service = result.scalar_one_or_none()
     if service is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
@@ -202,3 +204,92 @@ async def delete_service(slug: str, db: AsyncSession = Depends(get_db)) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     service.status = ServiceStatus.disabled.value
     await db.commit()
+
+
+@router.post("/{slug}/execution-config")
+async def register_execution_config(
+    slug: str,
+    request: Request,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Proxy execution config to the provider node via gateway gRPC."""
+    result = await db.execute(select(Service).where(Service.slug == slug))
+    service = result.scalar_one_or_none()
+    if service is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    stub = gateway_pb2_grpc.GatewayServiceStub(request.app.state.grpc_channel)
+
+    grpc_request = gateway_pb2.RegisterServiceConfigRequest(
+        service_slug=slug,
+        retry_count=body.get("retry_count", 0),
+    )
+    if body.get("image"):
+        grpc_request.image = body["image"]
+    if body.get("code"):
+        grpc_request.code = body["code"]
+    if body.get("command"):
+        grpc_request.command = body["command"]
+    if body.get("default_args"):
+        grpc_request.default_args.update(body["default_args"])
+    if body.get("default_env"):
+        grpc_request.default_env.update(body["default_env"])
+    if body.get("min_cpu") is not None:
+        grpc_request.min_cpu = int(body["min_cpu"])
+    if body.get("min_gpu") is not None:
+        grpc_request.min_gpu = int(body["min_gpu"])
+    if body.get("min_mem_mb") is not None:
+        grpc_request.min_mem_mb = int(body["min_mem_mb"])
+
+    try:
+        resp = await stub.RegisterServiceConfig(grpc_request)
+        return {"service_slug": resp.service_slug, "created": resp.created}
+    except grpc.RpcError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gateway error: {e.details() if hasattr(e, 'details') else str(e)}",
+        )
+
+
+@router.get("/{slug}/execution-config")
+async def get_execution_config(
+    slug: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Fetch execution config from the provider node via gateway gRPC."""
+    result = await db.execute(select(Service).where(Service.slug == slug))
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+
+    stub = gateway_pb2_grpc.GatewayServiceStub(request.app.state.grpc_channel)
+    try:
+        resp = await stub.GetServiceConfig(
+            gateway_pb2.GetServiceConfigRequest(service_slug=slug)
+        )
+        config: dict = {"service_slug": resp.service_slug, "retry_count": resp.retry_count}
+        if resp.HasField("image"):
+            config["image"] = resp.image
+        if resp.HasField("code"):
+            config["code"] = resp.code
+        if resp.HasField("command"):
+            config["command"] = resp.command
+        if resp.default_args and resp.default_args.fields:
+            config["default_args"] = dict(resp.default_args)
+        if resp.default_env and resp.default_env.fields:
+            config["default_env"] = dict(resp.default_env)
+        if resp.HasField("min_cpu"):
+            config["min_cpu"] = resp.min_cpu
+        if resp.HasField("min_gpu"):
+            config["min_gpu"] = resp.min_gpu
+        if resp.HasField("min_mem_mb"):
+            config["min_mem_mb"] = resp.min_mem_mb
+        return config
+    except grpc.RpcError as e:
+        if hasattr(e, "code") and e.code() == grpc.StatusCode.NOT_FOUND:
+            return {}
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gateway error: {e.details() if hasattr(e, 'details') else str(e)}",
+        )

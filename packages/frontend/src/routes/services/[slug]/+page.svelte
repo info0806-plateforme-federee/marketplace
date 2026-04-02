@@ -84,66 +84,6 @@
 			<SchemaViewer schema={service.output_schema} title={m.service_output_schema()} />
 		</Card>
 
-		<!-- Execution Configuration -->
-		{#if service.image || service.command || service.code || service.min_cpu != null || service.min_gpu != null || service.min_mem_mb != null || service.retry_count > 0}
-			<Card>
-				<h3 class="text-sm font-semibold text-foreground mb-3">Execution Configuration</h3>
-				<dl class="space-y-3 text-sm">
-					{#if service.image}
-						<div>
-							<dt class="text-muted-foreground">Docker Image</dt>
-							<dd class="font-medium text-foreground font-mono">{service.image}</dd>
-						</div>
-					{/if}
-					{#if service.command}
-						<div>
-							<dt class="text-muted-foreground">Command</dt>
-							<dd class="font-medium text-foreground font-mono">{service.command}</dd>
-						</div>
-					{/if}
-					{#if service.code}
-						<div>
-							<dt class="text-muted-foreground mb-1">Code</dt>
-							<dd>
-								<pre class="rounded-md bg-muted p-3 text-xs overflow-x-auto whitespace-pre-wrap text-foreground"><code>{service.code}</code></pre>
-							</dd>
-						</div>
-					{/if}
-					{#if service.min_cpu != null || service.min_gpu != null || service.min_mem_mb != null}
-						<div>
-							<dt class="text-muted-foreground mb-1">Resource Requirements</dt>
-							<dd class="space-y-1">
-								{#if service.min_cpu != null}
-									<div class="flex justify-between">
-										<span class="text-muted-foreground">Min CPU</span>
-										<span class="font-medium text-foreground">{service.min_cpu}</span>
-									</div>
-								{/if}
-								{#if service.min_mem_mb != null}
-									<div class="flex justify-between">
-										<span class="text-muted-foreground">Min Memory</span>
-										<span class="font-medium text-foreground">{service.min_mem_mb} MB</span>
-									</div>
-								{/if}
-								{#if service.min_gpu != null}
-									<div class="flex justify-between">
-										<span class="text-muted-foreground">Min GPU</span>
-										<span class="font-medium text-foreground">{service.min_gpu}</span>
-									</div>
-								{/if}
-							</dd>
-						</div>
-					{/if}
-					{#if service.retry_count > 0}
-						<div>
-							<dt class="text-muted-foreground">Retry Count</dt>
-							<dd class="font-medium text-foreground">{service.retry_count}</dd>
-						</div>
-					{/if}
-				</dl>
-			</Card>
-		{/if}
-
 		<!-- Terms -->
 		{#if service.terms_of_use}
 			<Card>

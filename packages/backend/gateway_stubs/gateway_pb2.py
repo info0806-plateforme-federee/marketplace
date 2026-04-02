@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rgateway.proto\x12\x07gateway\x1a\x1cgoogle/protobuf/struct.proto\"\xd3\x02\n\x14InvokeServiceRequest\x12\x15\n\rinvocation_id\x18\x01 \x01(\t\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\x12\x14\n\x0cservice_slug\x18\x03 \x01(\t\x12\x14\n\x0cservice_type\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\x16\n\x0e\x65xecution_mode\x18\x06 \x01(\t\x12.\n\rinput_payload\x18\x07 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x16\n\ttimeout_s\x18\x08 \x01(\x05H\x00\x88\x01\x01\x12\x1d\n\x10\x63onsumer_site_id\x18\t \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10provider_site_id\x18\n \x01(\tH\x02\x88\x01\x01\x42\x0c\n\n_timeout_sB\x13\n\x11_consumer_site_idB\x13\n\x11_provider_site_id\"R\n\x15InvokeServiceResponse\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x12\n\njob_status\x18\x02 \x01(\t\x12\x15\n\rinvocation_id\x18\x03 \x01(\t2`\n\x0eGatewayService\x12N\n\rInvokeService\x12\x1d.gateway.InvokeServiceRequest\x1a\x1e.gateway.InvokeServiceResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rgateway.proto\x12\x07gateway\x1a\x1cgoogle/protobuf/struct.proto\"\xd3\x02\n\x14InvokeServiceRequest\x12\x15\n\rinvocation_id\x18\x01 \x01(\t\x12\x14\n\x0cservice_name\x18\x02 \x01(\t\x12\x14\n\x0cservice_slug\x18\x03 \x01(\t\x12\x14\n\x0cservice_type\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x03(\t\x12\x16\n\x0e\x65xecution_mode\x18\x06 \x01(\t\x12.\n\rinput_payload\x18\x07 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x16\n\ttimeout_s\x18\x08 \x01(\x05H\x00\x88\x01\x01\x12\x1d\n\x10\x63onsumer_site_id\x18\t \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10provider_site_id\x18\n \x01(\tH\x02\x88\x01\x01\x42\x0c\n\n_timeout_sB\x13\n\x11_consumer_site_idB\x13\n\x11_provider_site_id\"R\n\x15InvokeServiceResponse\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x12\n\njob_status\x18\x02 \x01(\t\x12\x15\n\rinvocation_id\x18\x03 \x01(\t\"%\n\x13GetJobStatusRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\"\xa4\x01\n\x14GetJobStatusResponse\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12/\n\x0eresult_payload\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x15\n\rerror_message\x18\x04 \x01(\t\x12\x12\n\nstarted_at\x18\x05 \x01(\t\x12\x10\n\x08\x65nded_at\x18\x06 \x01(\t\"\xee\x02\n\x1cRegisterServiceConfigRequest\x12\x14\n\x0cservice_slug\x18\x01 \x01(\t\x12\x12\n\x05image\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04\x63ode\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x07\x63ommand\x18\x04 \x01(\tH\x02\x88\x01\x01\x12-\n\x0c\x64\x65\x66\x61ult_args\x18\x05 \x01(\x0b\x32\x17.google.protobuf.Struct\x12,\n\x0b\x64\x65\x66\x61ult_env\x18\x06 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x14\n\x07min_cpu\x18\x07 \x01(\x05H\x03\x88\x01\x01\x12\x14\n\x07min_gpu\x18\x08 \x01(\x05H\x04\x88\x01\x01\x12\x17\n\nmin_mem_mb\x18\t \x01(\x05H\x05\x88\x01\x01\x12\x13\n\x0bretry_count\x18\n \x01(\x05\x42\x08\n\x06_imageB\x07\n\x05_codeB\n\n\x08_commandB\n\n\x08_min_cpuB\n\n\x08_min_gpuB\r\n\x0b_min_mem_mb\"F\n\x1dRegisterServiceConfigResponse\x12\x14\n\x0cservice_slug\x18\x01 \x01(\t\x12\x0f\n\x07\x63reated\x18\x02 \x01(\x08\"/\n\x17GetServiceConfigRequest\x12\x14\n\x0cservice_slug\x18\x01 \x01(\t\"\xea\x02\n\x18GetServiceConfigResponse\x12\x14\n\x0cservice_slug\x18\x01 \x01(\t\x12\x12\n\x05image\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04\x63ode\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x07\x63ommand\x18\x04 \x01(\tH\x02\x88\x01\x01\x12-\n\x0c\x64\x65\x66\x61ult_args\x18\x05 \x01(\x0b\x32\x17.google.protobuf.Struct\x12,\n\x0b\x64\x65\x66\x61ult_env\x18\x06 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x14\n\x07min_cpu\x18\x07 \x01(\x05H\x03\x88\x01\x01\x12\x14\n\x07min_gpu\x18\x08 \x01(\x05H\x04\x88\x01\x01\x12\x17\n\nmin_mem_mb\x18\t \x01(\x05H\x05\x88\x01\x01\x12\x13\n\x0bretry_count\x18\n \x01(\x05\x42\x08\n\x06_imageB\x07\n\x05_codeB\n\n\x08_commandB\n\n\x08_min_cpuB\n\n\x08_min_gpuB\r\n\x0b_min_mem_mb\"B\n\x16StreamJobStatusRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x18\n\x10poll_interval_ms\x18\x02 \x01(\x05\"\xb1\x01\n\x0fJobStatusUpdate\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12/\n\x0eresult_payload\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\x12\x15\n\rerror_message\x18\x04 \x01(\t\x12\x12\n\nstarted_at\x18\x05 \x01(\t\x12\x10\n\x08\x65nded_at\x18\x06 \x01(\t\x12\x10\n\x08terminal\x18\x07 \x01(\x08\x32\xbe\x03\n\x0eGatewayService\x12N\n\rInvokeService\x12\x1d.gateway.InvokeServiceRequest\x1a\x1e.gateway.InvokeServiceResponse\x12K\n\x0cGetJobStatus\x12\x1c.gateway.GetJobStatusRequest\x1a\x1d.gateway.GetJobStatusResponse\x12N\n\x0fStreamJobStatus\x12\x1f.gateway.StreamJobStatusRequest\x1a\x18.gateway.JobStatusUpdate0\x01\x12\x66\n\x15RegisterServiceConfig\x12%.gateway.RegisterServiceConfigRequest\x1a&.gateway.RegisterServiceConfigResponse\x12W\n\x10GetServiceConfig\x12 .gateway.GetServiceConfigRequest\x1a!.gateway.GetServiceConfigResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,6 +36,22 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_INVOKESERVICEREQUEST']._serialized_end=396
   _globals['_INVOKESERVICERESPONSE']._serialized_start=398
   _globals['_INVOKESERVICERESPONSE']._serialized_end=480
-  _globals['_GATEWAYSERVICE']._serialized_start=482
-  _globals['_GATEWAYSERVICE']._serialized_end=578
+  _globals['_GETJOBSTATUSREQUEST']._serialized_start=482
+  _globals['_GETJOBSTATUSREQUEST']._serialized_end=519
+  _globals['_GETJOBSTATUSRESPONSE']._serialized_start=522
+  _globals['_GETJOBSTATUSRESPONSE']._serialized_end=686
+  _globals['_REGISTERSERVICECONFIGREQUEST']._serialized_start=689
+  _globals['_REGISTERSERVICECONFIGREQUEST']._serialized_end=1055
+  _globals['_REGISTERSERVICECONFIGRESPONSE']._serialized_start=1057
+  _globals['_REGISTERSERVICECONFIGRESPONSE']._serialized_end=1127
+  _globals['_GETSERVICECONFIGREQUEST']._serialized_start=1129
+  _globals['_GETSERVICECONFIGREQUEST']._serialized_end=1176
+  _globals['_GETSERVICECONFIGRESPONSE']._serialized_start=1179
+  _globals['_GETSERVICECONFIGRESPONSE']._serialized_end=1541
+  _globals['_STREAMJOBSTATUSREQUEST']._serialized_start=1543
+  _globals['_STREAMJOBSTATUSREQUEST']._serialized_end=1609
+  _globals['_JOBSTATUSUPDATE']._serialized_start=1612
+  _globals['_JOBSTATUSUPDATE']._serialized_end=1789
+  _globals['_GATEWAYSERVICE']._serialized_start=1792
+  _globals['_GATEWAYSERVICE']._serialized_end=2238
 # @@protoc_insertion_point(module_scope)

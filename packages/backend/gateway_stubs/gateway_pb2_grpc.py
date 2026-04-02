@@ -39,6 +39,26 @@ class GatewayServiceStub(object):
                 request_serializer=gateway__pb2.InvokeServiceRequest.SerializeToString,
                 response_deserializer=gateway__pb2.InvokeServiceResponse.FromString,
                 _registered_method=True)
+        self.GetJobStatus = channel.unary_unary(
+                '/gateway.GatewayService/GetJobStatus',
+                request_serializer=gateway__pb2.GetJobStatusRequest.SerializeToString,
+                response_deserializer=gateway__pb2.GetJobStatusResponse.FromString,
+                _registered_method=True)
+        self.StreamJobStatus = channel.unary_stream(
+                '/gateway.GatewayService/StreamJobStatus',
+                request_serializer=gateway__pb2.StreamJobStatusRequest.SerializeToString,
+                response_deserializer=gateway__pb2.JobStatusUpdate.FromString,
+                _registered_method=True)
+        self.RegisterServiceConfig = channel.unary_unary(
+                '/gateway.GatewayService/RegisterServiceConfig',
+                request_serializer=gateway__pb2.RegisterServiceConfigRequest.SerializeToString,
+                response_deserializer=gateway__pb2.RegisterServiceConfigResponse.FromString,
+                _registered_method=True)
+        self.GetServiceConfig = channel.unary_unary(
+                '/gateway.GatewayService/GetServiceConfig',
+                request_serializer=gateway__pb2.GetServiceConfigRequest.SerializeToString,
+                response_deserializer=gateway__pb2.GetServiceConfigResponse.FromString,
+                _registered_method=True)
 
 
 class GatewayServiceServicer(object):
@@ -51,6 +71,34 @@ class GatewayServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetJobStatus(self, request, context):
+        """Marketplace polls this to check job completion and retrieve results.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamJobStatus(self, request, context):
+        """Stream real-time job status updates until terminal state.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RegisterServiceConfig(self, request, context):
+        """Register or update execution config for a service (provider side).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetServiceConfig(self, request, context):
+        """Retrieve execution config for a service.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_GatewayServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -58,6 +106,26 @@ def add_GatewayServiceServicer_to_server(servicer, server):
                     servicer.InvokeService,
                     request_deserializer=gateway__pb2.InvokeServiceRequest.FromString,
                     response_serializer=gateway__pb2.InvokeServiceResponse.SerializeToString,
+            ),
+            'GetJobStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetJobStatus,
+                    request_deserializer=gateway__pb2.GetJobStatusRequest.FromString,
+                    response_serializer=gateway__pb2.GetJobStatusResponse.SerializeToString,
+            ),
+            'StreamJobStatus': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamJobStatus,
+                    request_deserializer=gateway__pb2.StreamJobStatusRequest.FromString,
+                    response_serializer=gateway__pb2.JobStatusUpdate.SerializeToString,
+            ),
+            'RegisterServiceConfig': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterServiceConfig,
+                    request_deserializer=gateway__pb2.RegisterServiceConfigRequest.FromString,
+                    response_serializer=gateway__pb2.RegisterServiceConfigResponse.SerializeToString,
+            ),
+            'GetServiceConfig': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetServiceConfig,
+                    request_deserializer=gateway__pb2.GetServiceConfigRequest.FromString,
+                    response_serializer=gateway__pb2.GetServiceConfigResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -87,6 +155,114 @@ class GatewayService(object):
             '/gateway.GatewayService/InvokeService',
             gateway__pb2.InvokeServiceRequest.SerializeToString,
             gateway__pb2.InvokeServiceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetJobStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.GatewayService/GetJobStatus',
+            gateway__pb2.GetJobStatusRequest.SerializeToString,
+            gateway__pb2.GetJobStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamJobStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/gateway.GatewayService/StreamJobStatus',
+            gateway__pb2.StreamJobStatusRequest.SerializeToString,
+            gateway__pb2.JobStatusUpdate.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterServiceConfig(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.GatewayService/RegisterServiceConfig',
+            gateway__pb2.RegisterServiceConfigRequest.SerializeToString,
+            gateway__pb2.RegisterServiceConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetServiceConfig(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.GatewayService/GetServiceConfig',
+            gateway__pb2.GetServiceConfigRequest.SerializeToString,
+            gateway__pb2.GetServiceConfigResponse.FromString,
             options,
             channel_credentials,
             insecure,

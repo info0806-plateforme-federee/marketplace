@@ -8,10 +8,12 @@ from decimal import Decimal
 
 import grpc
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 from google.protobuf.struct_pb2 import Struct
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.artifacts import build_invocation_artifact_uri, get_job_artifact_path
 from core.config import settings
 from core.database import get_db
 from gateway_stubs import gateway_pb2, gateway_pb2_grpc
@@ -97,6 +99,11 @@ async def refresh_invocation_status(
             invocation.ended_at = ended_at
             changed = True
 
+    artifact_uri = build_invocation_artifact_uri(invocation.id, invocation.job_id)
+    if invocation.artifact_uri != artifact_uri:
+        invocation.artifact_uri = artifact_uri
+        changed = True
+
     if not changed:
         return
 
@@ -117,6 +124,15 @@ async def refresh_invocation_status(
         "Invocation %s updated: %s → %s",
         invocation.id, previous_status, invocation.status,
     )
+
+
+async def refresh_invocation_artifact_uri(invocation: Invocation, db: AsyncSession) -> None:
+    artifact_uri = build_invocation_artifact_uri(invocation.id, invocation.job_id)
+    if invocation.artifact_uri == artifact_uri:
+        return
+
+    invocation.artifact_uri = artifact_uri
+    await db.commit()
 
 
 @router.post("/services/{slug}/invoke", response_model=InvocationResponse, status_code=status.HTTP_201_CREATED)
@@ -243,8 +259,30 @@ async def get_invocation(
     if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
         await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
         await db.refresh(invocation)
+    elif invocation.job_id:
+        await refresh_invocation_artifact_uri(invocation, db)
+        await db.refresh(invocation)
 
     return invocation
+
+
+@router.get("/invocations/{invocation_id}/artifact")
+async def get_invocation_artifact(
+    invocation_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
+    invocation = result.scalar_one_or_none()
+    if invocation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
+    if not invocation.job_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No artifact available")
+
+    artifact_path = get_job_artifact_path(invocation.job_id)
+    if artifact_path is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No artifact available")
+
+    return FileResponse(path=artifact_path, filename=artifact_path.name)
 
 
 @router.get("/invocations/{invocation_id}/result", response_model=InvocationResultResponse)
@@ -261,6 +299,9 @@ async def get_invocation_result(
 
     if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
         await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
+        await db.refresh(invocation)
+    elif invocation.job_id:
+        await refresh_invocation_artifact_uri(invocation, db)
         await db.refresh(invocation)
 
     return InvocationResultResponse.model_validate(invocation)

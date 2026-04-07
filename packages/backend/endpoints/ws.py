@@ -7,6 +7,7 @@ import grpc
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
+from core.artifacts import build_invocation_artifact_uri
 from core.database import async_session_factory
 from gateway_stubs import gateway_pb2, gateway_pb2_grpc
 from models.invocation import Invocation, InvocationStatus
@@ -59,10 +60,12 @@ async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> 
 
     # If already terminal, send final state and close.
     if invocation.status in _TERMINAL_STATUSES:
+        artifact_uri = build_invocation_artifact_uri(invocation.id, invocation.job_id)
         await websocket.send_json({
             "invocation_id": invocation.id,
             "status": invocation.status,
             "result_payload": invocation.result_payload,
+            "artifact_uri": artifact_uri,
             "error_message": invocation.error_message,
             "started_at": invocation.started_at.isoformat() if invocation.started_at else None,
             "ended_at": invocation.ended_at.isoformat() if invocation.ended_at else None,
@@ -85,6 +88,7 @@ async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> 
 
         async for update in stream:
             new_status = _JOB_STATUS_MAP.get(update.status, invocation.status)
+            artifact_uri = build_invocation_artifact_uri(invocation_id, invocation.job_id)
 
             # Persist status change to the invocation.
             async with async_session_factory() as session:
@@ -92,25 +96,49 @@ async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> 
                     select(Invocation).where(Invocation.id == invocation_id)
                 )
                 inv = result.scalar_one_or_none()
-                if inv and inv.status != new_status:
-                    inv.status = new_status
+                if inv:
+                    changed = False
+                    if inv.status != new_status:
+                        inv.status = new_status
+                        changed = True
                     if update.result_payload and update.result_payload.fields:
-                        inv.result_payload = dict(update.result_payload)
+                        result_payload = dict(update.result_payload)
+                        if inv.result_payload != result_payload:
+                            inv.result_payload = result_payload
+                            changed = True
                     if update.error_message:
-                        inv.error_message = update.error_message
+                        if inv.error_message != update.error_message:
+                            inv.error_message = update.error_message
+                            changed = True
                     if update.started_at:
-                        inv.started_at = datetime.fromisoformat(update.started_at)
+                        started_at = datetime.fromisoformat(update.started_at)
+                        if inv.started_at != started_at:
+                            inv.started_at = started_at
+                            changed = True
                     if update.ended_at:
-                        inv.ended_at = datetime.fromisoformat(update.ended_at)
-                    if new_status in _TERMINAL_STATUSES and inv.cost_estimated is not None:
+                        ended_at = datetime.fromisoformat(update.ended_at)
+                        if inv.ended_at != ended_at:
+                            inv.ended_at = ended_at
+                            changed = True
+                    if inv.artifact_uri != artifact_uri:
+                        inv.artifact_uri = artifact_uri
+                        changed = True
+                    if (
+                        new_status in _TERMINAL_STATUSES
+                        and inv.cost_estimated is not None
+                        and inv.cost_final != inv.cost_estimated
+                    ):
                         inv.cost_final = inv.cost_estimated
-                    await session.commit()
+                        changed = True
+                    if changed:
+                        await session.commit()
 
             is_terminal = new_status in _TERMINAL_STATUSES
             payload = {
                 "invocation_id": invocation_id,
                 "status": new_status,
                 "result_payload": dict(update.result_payload) if update.result_payload and update.result_payload.fields else None,
+                "artifact_uri": artifact_uri,
                 "error_message": update.error_message or None,
                 "started_at": update.started_at or None,
                 "ended_at": update.ended_at or None,

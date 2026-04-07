@@ -29,6 +29,10 @@
 	const endedAt = $derived(liveEndedAt ?? inv.ended_at);
 	const costFinal = $derived(liveCostFinal ?? inv.cost_final);
 	const artifactUri = $derived(liveArtifactUri ?? inv.artifact_uri);
+	const artifactHref = $derived.by(() => {
+		if (!artifactUri) return null;
+		return new URL(artifactUri, data.apiBaseUrl).toString();
+	});
 	const isLive = $derived(!TERMINAL_STATUSES.has(status));
 
 	function applyInvocationUpdate(update: {
@@ -155,8 +159,8 @@
 		{#if artifactUri}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_artifact()}</h3>
-				<a href={artifactUri} class="text-accent text-sm break-all hover:underline"
-					>{artifactUri}</a
+				<a href={artifactHref} class="text-accent text-sm break-all hover:underline"
+					>{artifactHref}</a
 				>
 			</Card>
 		{/if}

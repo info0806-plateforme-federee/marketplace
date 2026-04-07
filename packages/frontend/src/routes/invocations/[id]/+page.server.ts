@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
 			publicEnv.PUBLIC_MARKETPLACE_API_URL ?? `${url.protocol}//${url.hostname}:8090`;
 		const wsUrl = new URL(`/api/invocations/${params.id}/ws`, publicApiUrl);
 		wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-		return { invocation, wsUrl: wsUrl.toString() };
+		return { invocation, wsUrl: wsUrl.toString(), apiBaseUrl: publicApiUrl };
 	} catch {
 		error(404, 'Invocation not found');
 	}

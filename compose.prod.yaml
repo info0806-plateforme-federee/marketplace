@@ -55,13 +55,11 @@ services:
       MARKETPLACE__SITE_ID: site-local
       MARKETPLACE__SITE_NAME: Local Site
       GATEWAY__URL: ${GATEWAY_URL:-node:50052}
-      ARTIFACTS__ROOT_PATH: /artifacts
     env_file:
       - path: packages/backend/.env
         required: false
     volumes:
       - ./packages/backend:/app/packages/backend
-      - ../runtime/artifacts:/artifacts:ro
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz" ]
       interval: 5s
@@ -76,7 +74,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: docker/frontend.Dockerfile
+      dockerfile: docker/frontend.prod.Dockerfile
       args:
         UID: ${UID-1000}
         GID: ${GID-1000}
@@ -90,9 +88,7 @@ services:
     environment:
       INTERNAL_API_KEY: EPQIKdDY8Dz/4EW74UhGXn+HZpy/EkNgFRxBt+QplOQ/zs8SPnrURWdNLQhk3MaUK2KoabEbDHQAPo01ZU+BkQ==
       MARKETPLACE_API_URL: http://tailscale:8080
-    volumes:
-      - .:/app
-      - frontend_node_modules:/app/packages/frontend/node_modules
+      PUBLIC_MARKETPLACE_API_URL: ${PUBLIC_MARKETPLACE_API_URL:-http://localhost:8090}
     networks:
       default:
     depends_on:
@@ -101,5 +97,4 @@ services:
 
 volumes:
   postgres_data:
-  frontend_node_modules:
   tailscale_state:

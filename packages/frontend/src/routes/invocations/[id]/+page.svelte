@@ -15,42 +15,65 @@
 	const inv = $derived(data.invocation as Invocation);
 
 	let liveStatus = $state<InvocationStatus | null>(null);
-	let liveResultPayload = $state<Record<string, unknown> | null | undefined>(undefined);
+	let liveResultUrl = $state<string | null | undefined>(undefined);
+	let liveArtifactUrl = $state<string | null | undefined>(undefined);
 	let liveErrorMessage = $state<string | null | undefined>(undefined);
 	let liveStartedAt = $state<string | null | undefined>(undefined);
 	let liveEndedAt = $state<string | null | undefined>(undefined);
 	let liveCostFinal = $state<number | null | undefined>(undefined);
-	let liveArtifactUri = $state<string | null | undefined>(undefined);
 
 	const status = $derived(liveStatus ?? inv.status);
-	const resultPayload = $derived(liveResultPayload ?? inv.result_payload);
+	const resultUrl = $derived(liveResultUrl ?? inv.result_url);
+	const artifactUrl = $derived(liveArtifactUrl ?? inv.artifact_url);
 	const errorMessage = $derived(liveErrorMessage ?? inv.error_message);
 	const startedAt = $derived(liveStartedAt ?? inv.started_at);
 	const endedAt = $derived(liveEndedAt ?? inv.ended_at);
 	const costFinal = $derived(liveCostFinal ?? inv.cost_final);
-	const artifactUri = $derived(liveArtifactUri ?? inv.artifact_uri);
-	const artifactHref = $derived.by(() => {
-		if (!artifactUri) return null;
-		return new URL(artifactUri, data.apiBaseUrl).toString();
-	});
 	const isLive = $derived(!TERMINAL_STATUSES.has(status));
+
+	// Fetch result payload from presigned URL (provider S3)
+	let resultData = $state<Record<string, unknown> | null>(null);
+	let resultLoading = $state(false);
+	let resultError = $state<string | null>(null);
+
+	$effect(() => {
+		if (resultUrl) {
+			resultLoading = true;
+			resultError = null;
+			fetch(resultUrl)
+				.then((r) => {
+					if (!r.ok) throw new Error(`HTTP ${r.status}`);
+					return r.json();
+				})
+				.then((data) => {
+					resultData = data;
+					resultLoading = false;
+				})
+				.catch((e) => {
+					resultError = e.message;
+					resultLoading = false;
+				});
+		} else {
+			resultData = null;
+		}
+	});
 
 	function applyInvocationUpdate(update: {
 		status?: InvocationStatus;
-		result_payload?: Record<string, unknown> | null;
+		result_url?: string | null;
+		artifact_url?: string | null;
 		error_message?: string | null;
 		started_at?: string | null;
 		ended_at?: string | null;
 		cost_final?: number | null;
-		artifact_uri?: string | null;
 	}): void {
 		if (update.status) liveStatus = update.status;
-		if (update.result_payload !== undefined) liveResultPayload = update.result_payload;
+		if (update.result_url !== undefined) liveResultUrl = update.result_url;
+		if (update.artifact_url !== undefined) liveArtifactUrl = update.artifact_url;
 		if (update.error_message !== undefined) liveErrorMessage = update.error_message;
 		if (update.started_at !== undefined) liveStartedAt = update.started_at;
 		if (update.ended_at !== undefined) liveEndedAt = update.ended_at;
 		if (update.cost_final !== undefined) liveCostFinal = update.cost_final;
-		if (update.artifact_uri !== undefined) liveArtifactUri = update.artifact_uri;
 	}
 
 	$effect(() => {
@@ -66,12 +89,12 @@
 			}
 			applyInvocationUpdate({
 				status: update.status as InvocationStatus,
-				result_payload: update.result_payload ?? undefined,
+				result_url: update.result_url ?? undefined,
+				artifact_url: update.artifact_url ?? undefined,
 				error_message: update.error_message ?? undefined,
 				started_at: update.started_at ?? undefined,
 				ended_at: update.ended_at ?? undefined,
 				cost_final: update.cost_final ?? undefined,
-				artifact_uri: update.artifact_uri ?? undefined,
 			});
 		};
 
@@ -138,12 +161,25 @@
 		</Card>
 
 		<!-- Result -->
-		{#if resultPayload}
+		{#if resultLoading}
+			<Card>
+				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
+				<div class="flex items-center gap-2 text-sm text-muted-foreground">
+					<Spinner size="sm" />
+					<span>Loading result...</span>
+				</div>
+			</Card>
+		{:else if resultData}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
 				<pre class="text-foreground bg-muted overflow-x-auto rounded-md p-3 text-sm">{formatJson(
-						resultPayload
+						resultData
 					)}</pre>
+			</Card>
+		{:else if resultError}
+			<Card>
+				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
+				<p class="text-destructive text-sm">Failed to load result: {resultError}</p>
 			</Card>
 		{/if}
 
@@ -156,11 +192,11 @@
 		{/if}
 
 		<!-- Artifact -->
-		{#if artifactUri}
+		{#if artifactUrl}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_artifact()}</h3>
-				<a href={artifactHref} class="text-accent text-sm break-all hover:underline"
-					>{artifactHref}</a
+				<a href={artifactUrl} class="text-accent text-sm break-all hover:underline" download
+					>{m.invocation_artifact()}</a
 				>
 			</Card>
 		{/if}

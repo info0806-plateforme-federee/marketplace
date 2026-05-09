@@ -48,17 +48,10 @@ class GatewayConfig(BaseModel):
     url: str = "node:50052"
 
 
-class ArtifactsConfig(BaseModel):
-    """Shared artifact storage mounted from the host."""
-
-    root_path: str = "/artifacts"
-
-
 class Settings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
     marketplace: MarketplaceConfig = MarketplaceConfig()
     gateway: GatewayConfig = GatewayConfig()
-    artifacts: ArtifactsConfig = ArtifactsConfig()
 
     class Config:
         env_file = ".env"

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
 import grpc
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from google.protobuf.struct_pb2 import Struct
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,6 +122,46 @@ async def refresh_invocation_status(
         "Invocation %s updated: %s → %s",
         invocation.id, previous_status, invocation.status,
     )
+
+
+async def _fetch_provider_url(url: str) -> tuple[bytes, str, str | None]:
+    def _fetch() -> tuple[bytes, str, str | None]:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            content_type = resp.headers.get("content-type") or "application/octet-stream"
+            content_disposition = resp.headers.get("content-disposition")
+            return resp.read(), content_type, content_disposition
+
+    try:
+        return await asyncio.to_thread(_fetch)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise HTTPException(
+            status_code=exc.code,
+            detail=detail or "Provider object fetch failed",
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Provider object fetch failed: {exc}",
+        ) from exc
+
+
+async def _get_refreshed_invocation(
+    invocation_id: str,
+    request: Request,
+    db: AsyncSession,
+) -> Invocation:
+    result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
+    invocation = result.scalar_one_or_none()
+    if invocation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
+
+    if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
+        await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
+        await db.refresh(invocation)
+
+    return invocation
 
 
 @router.post("/services/{slug}/invoke", response_model=InvocationResponse, status_code=status.HTTP_201_CREATED)
@@ -237,16 +280,7 @@ async def get_invocation(
     db: AsyncSession = Depends(get_db),
 ) -> Invocation:
     """Return a single invocation by ID, auto-refreshing status if pending."""
-    result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
-    invocation = result.scalar_one_or_none()
-    if invocation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
-
-    if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
-        await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
-        await db.refresh(invocation)
-
-    return invocation
+    return await _get_refreshed_invocation(invocation_id, request, db)
 
 
 @router.get("/invocations/{invocation_id}/result", response_model=InvocationResultResponse)
@@ -256,13 +290,39 @@ async def get_invocation_result(
     db: AsyncSession = Depends(get_db),
 ) -> InvocationResultResponse:
     """Return the result summary for a completed invocation."""
-    result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
-    invocation = result.scalar_one_or_none()
-    if invocation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invocation not found")
-
-    if invocation.status in (InvocationStatus.accepted.value, InvocationStatus.running.value):
-        await refresh_invocation_status(invocation, request.app.state.grpc_channel, db)
-        await db.refresh(invocation)
-
+    invocation = await _get_refreshed_invocation(invocation_id, request, db)
     return InvocationResultResponse.model_validate(invocation)
+
+
+@router.get("/invocations/{invocation_id}/result-file")
+async def get_invocation_result_file(
+    invocation_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Proxy a provider result object through the marketplace API for browsers."""
+    invocation = await _get_refreshed_invocation(invocation_id, request, db)
+    if not invocation.result_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Result not available")
+
+    body, content_type, content_disposition = await _fetch_provider_url(invocation.result_url)
+    headers = {}
+    if content_disposition:
+        headers["content-disposition"] = content_disposition
+    return Response(content=body, media_type=content_type, headers=headers)
+
+
+@router.get("/invocations/{invocation_id}/artifact")
+async def get_invocation_artifact(
+    invocation_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Proxy a provider artifact object through the marketplace API for browsers."""
+    invocation = await _get_refreshed_invocation(invocation_id, request, db)
+    if not invocation.artifact_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not available")
+
+    body, content_type, content_disposition = await _fetch_provider_url(invocation.artifact_url)
+    headers = {"content-disposition": content_disposition or "attachment"}
+    return Response(content=body, media_type=content_type, headers=headers)

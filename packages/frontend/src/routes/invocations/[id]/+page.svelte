@@ -25,6 +25,8 @@
 	const status = $derived(liveStatus ?? inv.status);
 	const resultUrl = $derived(liveResultUrl ?? inv.result_url);
 	const artifactUrl = $derived(liveArtifactUrl ?? inv.artifact_url);
+	const resultProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/result-file`);
+	const artifactProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/artifact`);
 	const errorMessage = $derived(liveErrorMessage ?? inv.error_message);
 	const startedAt = $derived(liveStartedAt ?? inv.started_at);
 	const endedAt = $derived(liveEndedAt ?? inv.ended_at);
@@ -40,7 +42,7 @@
 		if (resultUrl) {
 			resultLoading = true;
 			resultError = null;
-			fetch(resultUrl)
+			fetch(resultProxyUrl)
 				.then((r) => {
 					if (!r.ok) throw new Error(`HTTP ${r.status}`);
 					return r.json();
@@ -195,7 +197,7 @@
 		{#if artifactUrl}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_artifact()}</h3>
-				<a href={artifactUrl} class="text-accent text-sm break-all hover:underline" download
+				<a href={artifactProxyUrl} class="text-accent text-sm break-all hover:underline" download
 					>{m.invocation_artifact()}</a
 				>
 			</Card>

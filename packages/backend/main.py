@@ -14,6 +14,7 @@ from endpoints.invocations import refresh_invocation_status, router as invocatio
 from endpoints.services import router as services_router
 from endpoints.sites import router as sites_router
 from endpoints.ws import router as ws_router
+from fixtures.demo_services import register_demo_execution_configs, seed_demo_services
 from models.invocation import Invocation, InvocationStatus
 from models.site import Site
 
@@ -65,9 +66,15 @@ async def lifespan(app: FastAPI):
     await _seed_local_site()
     app.state.grpc_channel = grpc.aio.insecure_channel(settings.gateway.url)
     logger.info("Gateway gRPC channel: %s", settings.gateway.url)
+    async with async_session_factory() as session:
+        await seed_demo_services(session)
+    fixtures_task = asyncio.create_task(
+        register_demo_execution_configs(app.state.grpc_channel)
+    )
     poller_task = asyncio.create_task(_poll_pending_invocations(app.state.grpc_channel))
     yield
     poller_task.cancel()
+    fixtures_task.cancel()
     await app.state.grpc_channel.close()
     await engine.dispose()
 

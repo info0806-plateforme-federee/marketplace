@@ -149,28 +149,4 @@
                 sans-serif;
     }
 
-    /* Font declarations with swap for better performance */
-    @font-face {
-        font-family: 'ExpletusSans';
-        font-style: normal;
-        font-weight: 400;
-        font-display: swap; /* Shows fallback font while custom font loads */
-        src: url('/fonts/ExpletusSans-Medium.ttf') format('truetype');
-    }
-
-    @font-face {
-        font-family: 'Playfair Display';
-        font-style: normal;
-        font-weight: 700;
-        font-display: swap; /* Shows fallback font while custom font loads */
-        src: url('/fonts/PlayfairDisplay-VariableFont_wght.ttf') format('truetype');
-    }
-
-    @font-face {
-        font-family: 'Playfair Display';
-        font-style: italic;
-        font-weight: 400;
-        font-display: swap; /* Shows fallback font while custom font loads */
-        src: url('/fonts/PlayfairDisplay-Italic-VariableFont_wght.ttf') format('truetype');
-    }
 }

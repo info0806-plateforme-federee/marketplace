@@ -48,10 +48,18 @@ class GatewayConfig(BaseModel):
     url: str = "node:50052"
 
 
+class FixturesConfig(BaseModel):
+    """Development/demo fixture configuration."""
+
+    enabled: bool = True
+    seed_csv_cleaning_demo: bool = True
+
+
 class Settings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
     marketplace: MarketplaceConfig = MarketplaceConfig()
     gateway: GatewayConfig = GatewayConfig()
+    fixtures: FixturesConfig = FixturesConfig()
 
     class Config:
         env_file = ".env"

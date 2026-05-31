@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import os
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime
@@ -145,6 +147,12 @@ async def _fetch_provider_url(url: str) -> tuple[bytes, str, str | None]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Provider object fetch failed: {exc}",
         ) from exc
+
+
+def _download_filename_from_url(url: str, fallback: str) -> str:
+    path = urllib.parse.urlparse(url).path
+    name = os.path.basename(path)
+    return name or fallback
 
 
 async def _get_refreshed_invocation(
@@ -324,5 +332,8 @@ async def get_invocation_artifact(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not available")
 
     body, content_type, content_disposition = await _fetch_provider_url(invocation.artifact_url)
-    headers = {"content-disposition": content_disposition or "attachment"}
+    if not content_disposition:
+        filename = _download_filename_from_url(invocation.artifact_url, "artifact")
+        content_disposition = f'attachment; filename="{filename}"'
+    headers = {"content-disposition": content_disposition}
     return Response(content=body, media_type=content_type, headers=headers)

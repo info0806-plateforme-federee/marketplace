@@ -91,8 +91,8 @@ export interface Invocation {
 	consumer_site_id: string;
 	status: InvocationStatus;
 	input_payload: Record<string, unknown>;
-	result_payload: Record<string, unknown> | null;
-	artifact_uri: string | null;
+	result_url: string | null;
+	artifact_url: string | null;
 	error_message: string | null;
 	cost_estimated: number | null;
 	cost_final: number | null;
@@ -104,8 +104,8 @@ export interface Invocation {
 
 export interface InvocationResult {
 	status: InvocationStatus;
-	result_payload: Record<string, unknown> | null;
-	artifact_uri: string | null;
+	result_url: string | null;
+	artifact_url: string | null;
 	error_message: string | null;
 	cost_final: number | null;
 }

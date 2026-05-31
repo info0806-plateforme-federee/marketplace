@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -9,9 +10,12 @@ from sqlalchemy import select
 from core.config import settings
 from core.database import async_session_factory, engine
 from core.logging import setup_logging
-from endpoints.invocations import router as invocations_router
+from endpoints.invocations import refresh_invocation_status, router as invocations_router
 from endpoints.services import router as services_router
 from endpoints.sites import router as sites_router
+from endpoints.ws import router as ws_router
+from fixtures.demo_services import register_demo_execution_configs, seed_demo_services
+from models.invocation import Invocation, InvocationStatus
 from models.site import Site
 
 setup_logging()
@@ -36,12 +40,41 @@ async def _seed_local_site() -> None:
             logger.info("Seeded local site: %s", settings.marketplace.site_id)
 
 
+async def _poll_pending_invocations(grpc_channel: grpc.aio.Channel) -> None:
+    """Background task that periodically refreshes accepted/running invocations."""
+    while True:
+        await asyncio.sleep(30)
+        try:
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(Invocation).where(
+                        Invocation.status.in_([
+                            InvocationStatus.accepted.value,
+                            InvocationStatus.running.value,
+                        ])
+                    )
+                )
+                invocations = result.scalars().all()
+                for inv in invocations:
+                    await refresh_invocation_status(inv, grpc_channel, session)
+        except Exception:
+            logger.exception("Error in invocation polling loop")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await _seed_local_site()
     app.state.grpc_channel = grpc.aio.insecure_channel(settings.gateway.url)
     logger.info("Gateway gRPC channel: %s", settings.gateway.url)
+    async with async_session_factory() as session:
+        await seed_demo_services(session)
+    fixtures_task = asyncio.create_task(
+        register_demo_execution_configs(app.state.grpc_channel)
+    )
+    poller_task = asyncio.create_task(_poll_pending_invocations(app.state.grpc_channel))
     yield
+    poller_task.cancel()
+    fixtures_task.cancel()
     await app.state.grpc_channel.close()
     await engine.dispose()
 
@@ -60,6 +93,7 @@ api_router.include_router(sites_router)
 api_router.include_router(services_router)
 api_router.include_router(invocations_router)
 app.include_router(api_router)
+app.include_router(ws_router)
 
 
 @app.get("/healthz")

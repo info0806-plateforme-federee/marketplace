@@ -24,8 +24,8 @@ class InvocationResponse(BaseModel):
     consumer_site_id: str
     status: InvocationStatus
     input_payload: dict
-    result_payload: dict | None
-    artifact_uri: str | None
+    result_url: str | None
+    artifact_url: str | None
     error_message: str | None
     cost_estimated: Decimal | None
     cost_final: Decimal | None
@@ -42,8 +42,8 @@ class InvocationResultResponse(BaseModel):
     """Result summary for a completed invocation."""
 
     status: InvocationStatus
-    result_payload: dict | None
-    artifact_uri: str | None
+    result_url: str | None
+    artifact_url: str | None
     error_message: str | None
     cost_final: Decimal | None
 

@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 	const client = createMarketplaceClient(fetch, env.MARKETPLACE_API_URL ?? 'http://localhost:8090');
 
 	try {
-		const service = await client.getService(params.slug);
+		const service = await client.getService(params.slug, true);
 		return { service };
 	} catch {
 		error(404, 'Service not found');

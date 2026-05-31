@@ -5,9 +5,111 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import StatusBadge from '$lib/components/marketplace/StatusBadge.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import type { Invocation } from '$lib/types/marketplace';
+	import type { InvocationStatus } from '$lib/types/marketplace';
 
 	let { data } = $props();
-	let inv = $derived(data.invocation);
+
+	const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
+	const inv = $derived(data.invocation as Invocation);
+
+	let liveStatus = $state<InvocationStatus | null>(null);
+	let liveResultUrl = $state<string | null | undefined>(undefined);
+	let liveArtifactUrl = $state<string | null | undefined>(undefined);
+	let liveErrorMessage = $state<string | null | undefined>(undefined);
+	let liveStartedAt = $state<string | null | undefined>(undefined);
+	let liveEndedAt = $state<string | null | undefined>(undefined);
+	let liveCostFinal = $state<number | null | undefined>(undefined);
+
+	const status = $derived(liveStatus ?? inv.status);
+	const resultUrl = $derived(liveResultUrl ?? inv.result_url);
+	const artifactUrl = $derived(liveArtifactUrl ?? inv.artifact_url);
+	const resultProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/result-file`);
+	const artifactProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/artifact`);
+	const errorMessage = $derived(liveErrorMessage ?? inv.error_message);
+	const startedAt = $derived(liveStartedAt ?? inv.started_at);
+	const endedAt = $derived(liveEndedAt ?? inv.ended_at);
+	const costFinal = $derived(liveCostFinal ?? inv.cost_final);
+	const isLive = $derived(!TERMINAL_STATUSES.has(status));
+
+	// Fetch result payload from presigned URL (provider S3)
+	let resultData = $state<Record<string, unknown> | null>(null);
+	let resultLoading = $state(false);
+	let resultError = $state<string | null>(null);
+
+	$effect(() => {
+		if (resultUrl) {
+			resultLoading = true;
+			resultError = null;
+			fetch(resultProxyUrl)
+				.then((r) => {
+					if (!r.ok) throw new Error(`HTTP ${r.status}`);
+					return r.json();
+				})
+				.then((data) => {
+					resultData = data;
+					resultLoading = false;
+				})
+				.catch((e) => {
+					resultError = e.message;
+					resultLoading = false;
+				});
+		} else {
+			resultData = null;
+		}
+	});
+
+	function applyInvocationUpdate(update: {
+		status?: InvocationStatus;
+		result_url?: string | null;
+		artifact_url?: string | null;
+		error_message?: string | null;
+		started_at?: string | null;
+		ended_at?: string | null;
+		cost_final?: number | null;
+	}): void {
+		if (update.status) liveStatus = update.status;
+		if (update.result_url !== undefined) liveResultUrl = update.result_url;
+		if (update.artifact_url !== undefined) liveArtifactUrl = update.artifact_url;
+		if (update.error_message !== undefined) liveErrorMessage = update.error_message;
+		if (update.started_at !== undefined) liveStartedAt = update.started_at;
+		if (update.ended_at !== undefined) liveEndedAt = update.ended_at;
+		if (update.cost_final !== undefined) liveCostFinal = update.cost_final;
+	}
+
+	$effect(() => {
+		if (!isLive) return;
+
+		const ws = new WebSocket(data.wsUrl);
+
+		ws.onmessage = (event) => {
+			const update = JSON.parse(event.data);
+			if (update.error) {
+				liveErrorMessage = update.error;
+				return;
+			}
+			applyInvocationUpdate({
+				status: update.status as InvocationStatus,
+				result_url: update.result_url ?? undefined,
+				artifact_url: update.artifact_url ?? undefined,
+				error_message: update.error_message ?? undefined,
+				started_at: update.started_at ?? undefined,
+				ended_at: update.ended_at ?? undefined,
+				cost_final: update.cost_final ?? undefined,
+			});
+		};
+
+		ws.onerror = () => {
+			liveErrorMessage = 'Live status connection failed';
+		};
+
+		return () => {
+			if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+				ws.close();
+			}
+		};
+	});
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
@@ -38,7 +140,13 @@
 
 <PageHeader title="Invocation {inv.id.slice(0, 8)}...">
 	{#snippet actions()}
-		<StatusBadge status={inv.status} />
+		<div class="flex items-center gap-2">
+			<StatusBadge status={status} />
+			{#if isLive}
+				<Spinner size="sm" />
+				<span class="text-muted-foreground text-xs">Live</span>
+			{/if}
+		</div>
 		<Button variant="outline" href={localizeHref('/invocations')}>{m.common_back()}</Button>
 	{/snippet}
 </PageHeader>
@@ -55,29 +163,42 @@
 		</Card>
 
 		<!-- Result -->
-		{#if inv.result_payload}
+		{#if resultLoading}
+			<Card>
+				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
+				<div class="flex items-center gap-2 text-sm text-muted-foreground">
+					<Spinner size="sm" />
+					<span>Loading result...</span>
+				</div>
+			</Card>
+		{:else if resultData}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
 				<pre class="text-foreground bg-muted overflow-x-auto rounded-md p-3 text-sm">{formatJson(
-						inv.result_payload
+						resultData
 					)}</pre>
+			</Card>
+		{:else if resultError}
+			<Card>
+				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_result()}</h3>
+				<p class="text-destructive text-sm">Failed to load result: {resultError}</p>
 			</Card>
 		{/if}
 
 		<!-- Error -->
-		{#if inv.error_message}
+		{#if errorMessage}
 			<Card>
 				<h3 class="text-destructive mb-2 text-sm font-semibold">{m.invocation_error()}</h3>
-				<p class="text-destructive text-sm">{inv.error_message}</p>
+				<p class="text-destructive text-sm">{errorMessage}</p>
 			</Card>
 		{/if}
 
 		<!-- Artifact -->
-		{#if inv.artifact_uri}
+		{#if artifactUrl}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_artifact()}</h3>
-				<a href={inv.artifact_uri} class="text-accent text-sm break-all hover:underline"
-					>{inv.artifact_uri}</a
+				<a href={artifactProxyUrl} class="text-accent text-sm break-all hover:underline" download
+					>{m.invocation_artifact()}</a
 				>
 			</Card>
 		{/if}
@@ -89,7 +210,7 @@
 			<dl class="space-y-3 text-sm">
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_status()}</dt>
-					<dd><StatusBadge status={inv.status} /></dd>
+					<dd><StatusBadge status={status} /></dd>
 				</div>
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_service()}</dt>
@@ -103,7 +224,7 @@
 				</div>
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_final_cost()}</dt>
-					<dd class="text-foreground font-medium">{formatCost(inv.cost_final, inv.currency)}</dd>
+					<dd class="text-foreground font-medium">{formatCost(costFinal, inv.currency)}</dd>
 				</div>
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_created()}</dt>
@@ -111,11 +232,11 @@
 				</div>
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_started()}</dt>
-					<dd class="text-foreground font-medium">{formatDate(inv.started_at)}</dd>
+					<dd class="text-foreground font-medium">{formatDate(startedAt)}</dd>
 				</div>
 				<div>
 					<dt class="text-muted-foreground">{m.invocation_ended()}</dt>
-					<dd class="text-foreground font-medium">{formatDate(inv.ended_at)}</dd>
+					<dd class="text-foreground font-medium">{formatDate(endedAt)}</dd>
 				</div>
 			</dl>
 		</Card>

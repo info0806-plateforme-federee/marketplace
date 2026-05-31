@@ -43,8 +43,8 @@ class Invocation(Base):
         String(50), nullable=False, server_default=InvocationStatus.pending.value
     )
     input_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
-    result_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    artifact_uri: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    result_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    artifact_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     cost_estimated: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     cost_final: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)

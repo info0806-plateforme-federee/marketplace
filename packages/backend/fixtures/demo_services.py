@@ -207,6 +207,202 @@ CSV_CLEANING_EXECUTION_CONFIG: dict[str, Any] = {
 }
 
 
+GPU_STRESS_SLUG = "gpu-stress-benchmark"
+
+GPU_STRESS_IMAGE = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime"
+
+
+GPU_STRESS_DESCRIPTION = textwrap.dedent(
+    """\
+    Synthetic GPU benchmark service for validating high-GPU scheduling and execution in the federated marketplace.
+
+    What it does:
+    - Allocates large CUDA tensors and performs repeated matrix multiplications on the GPU.
+    - Produces sustained GPU compute load instead of a short probe or a model warm-up.
+    - Returns structured benchmark metadata plus a CSV artifact with per-iteration timings.
+
+    Runtime requirements:
+    - A worker must advertise at least 1 GPU and expose tags compatible with this service: gpu, cuda, docker.
+    - The host running the worker must have a functional NVIDIA driver and NVIDIA Container Toolkit.
+    - The configured container image must already contain a CUDA-capable PyTorch build.
+
+    Recommended invocation payloads:
+    - Safe start for smaller GPUs: {"matrix_size": 8192, "iterations": 20, "warmup_steps": 5, "dtype": "float16"}
+    - Stronger load for 8 GB+ GPUs: {"matrix_size": 12288, "iterations": 30, "warmup_steps": 5, "dtype": "float16"}
+
+    Result contract:
+    - Structured JSON summary includes GPU name, tensor dtype, matrix size, iteration count, elapsed time, peak GPU memory, and average iteration latency.
+    - A CSV artifact named gpu_benchmark_metrics.csv contains per-iteration timings.
+
+    Important caveats:
+    - This is a synthetic benchmark, not a model inference workload.
+    - If no worker exposes a GPU, the invocation may remain accepted and never start.
+    """
+).strip()
+
+
+GPU_STRESS_CODE = textwrap.dedent(
+    """\
+    import csv
+    import json
+    import os
+    import time
+    from pathlib import Path
+
+    import torch
+
+
+    def load_args() -> dict:
+        args_path = os.environ.get("JOB_ARGS_PATH")
+        if not args_path:
+            return {}
+        path = Path(args_path)
+        if not path.is_file():
+            return {}
+        with path.open() as f:
+            payload = json.load(f)
+        return payload if isinstance(payload, dict) else {}
+
+
+    def main() -> None:
+        if not torch.cuda.is_available():
+            raise SystemExit("CUDA is not available inside the job container")
+
+        params = load_args()
+        matrix_size = int(params.get("matrix_size", 12288))
+        iterations = int(params.get("iterations", 30))
+        warmup_steps = int(params.get("warmup_steps", 5))
+        dtype_name = str(params.get("dtype", "float16")).lower()
+
+        dtype_map = {
+            "float16": torch.float16,
+            "float32": torch.float32,
+            "bfloat16": torch.bfloat16,
+        }
+        if dtype_name not in dtype_map:
+            raise SystemExit(f"Unsupported dtype: {dtype_name}")
+        dtype = dtype_map[dtype_name]
+
+        device = torch.device("cuda")
+        gpu_name = torch.cuda.get_device_name(device)
+        total_mem_mb = torch.cuda.get_device_properties(device).total_memory / (1024 * 1024)
+
+        torch.manual_seed(42)
+        a = torch.randn((matrix_size, matrix_size), device=device, dtype=dtype)
+        b = torch.randn((matrix_size, matrix_size), device=device, dtype=dtype)
+
+        for _ in range(warmup_steps):
+            c = torch.matmul(a, b)
+            torch.cuda.synchronize()
+            del c
+
+        torch.cuda.reset_peak_memory_stats(device)
+        timings_ms = []
+        benchmark_started = time.perf_counter()
+
+        for _ in range(iterations):
+            step_started = time.perf_counter()
+            c = torch.matmul(a, b)
+            torch.cuda.synchronize()
+            timings_ms.append((time.perf_counter() - step_started) * 1000.0)
+            del c
+
+        elapsed_s = time.perf_counter() - benchmark_started
+        peak_gpu_mem_mb = torch.cuda.max_memory_allocated(device) / (1024 * 1024)
+        avg_iteration_ms = sum(timings_ms) / len(timings_ms)
+
+        out_dir = Path("/workspace")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        artifact_path = out_dir / "gpu_benchmark_metrics.csv"
+        with artifact_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["iteration", "elapsed_ms"])
+            for idx, elapsed_ms in enumerate(timings_ms, start=1):
+                writer.writerow([idx, round(elapsed_ms, 3)])
+
+        result = {
+            "device": str(device),
+            "gpu_name": gpu_name,
+            "matrix_size": matrix_size,
+            "iterations": iterations,
+            "warmup_steps": warmup_steps,
+            "dtype": dtype_name,
+            "elapsed_s": round(elapsed_s, 4),
+            "avg_iteration_ms": round(avg_iteration_ms, 3),
+            "peak_gpu_mem_mb": round(peak_gpu_mem_mb, 2),
+            "gpu_total_mem_mb": round(total_mem_mb, 2),
+            "output_file": str(artifact_path),
+        }
+        print(json.dumps(result))
+
+
+    if __name__ == "__main__":
+        main()
+    """
+).strip()
+
+
+GPU_STRESS_SERVICE: dict[str, Any] = {
+    "name": "GPU Stress Benchmark",
+    "slug": GPU_STRESS_SLUG,
+    "description": GPU_STRESS_DESCRIPTION,
+    "category": "benchmark",
+    "tags": ["gpu", "cuda", "docker", "benchmark", "stress"],
+    "service_type": "compute",
+    "version": "1.0.0",
+    "status": "active",
+    "price_type": "free",
+    "price_amount": None,
+    "currency": "EUR",
+    "visibility": "public",
+    "execution_mode": "async",
+    "input_schema": {
+        "matrix_size": "integer",
+        "iterations": "integer",
+        "warmup_steps": "integer",
+        "dtype": "string",
+    },
+    "output_schema": {
+        "device": "string",
+        "gpu_name": "string",
+        "matrix_size": "integer",
+        "iterations": "integer",
+        "warmup_steps": "integer",
+        "dtype": "string",
+        "elapsed_s": "number",
+        "avg_iteration_ms": "number",
+        "peak_gpu_mem_mb": "number",
+        "gpu_total_mem_mb": "number",
+        "output_file": "string",
+    },
+    "max_concurrency": 1,
+    "timeout_s": 900,
+    "terms_of_use": None,
+}
+
+
+GPU_STRESS_EXECUTION_CONFIG: dict[str, Any] = {
+    "image": GPU_STRESS_IMAGE,
+    "code": GPU_STRESS_CODE,
+    "command": "python /workspace/run.py",
+    # Intentionally small defaults so an empty invocation payload still runs;
+    # increase matrix_size/iterations for a real stress run.
+    "default_args": {
+        "matrix_size": 2048,
+        "iterations": 3,
+        "warmup_steps": 1,
+        "dtype": "float16",
+    },
+    "default_env": {
+        "PYTHONUNBUFFERED": "1",
+    },
+    "min_cpu": 2,
+    "min_gpu": 1,
+    "min_mem_mb": 4096,
+    "retry_count": 0,
+}
+
+
 async def _upsert_service(session: AsyncSession, fixture: dict[str, Any]) -> Service:
     result = await session.execute(select(Service).where(Service.slug == fixture["slug"]))
     service = result.scalar_one_or_none()
@@ -267,16 +463,28 @@ async def _register_execution_config(
     logger.info("Fixture execution config %s for service: %s", action, slug)
 
 
+def _enabled_fixtures() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    """Return (slug, service_fixture, execution_config) for each enabled demo."""
+    fixtures: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    if not settings.fixtures.enabled:
+        return fixtures
+    if settings.fixtures.seed_csv_cleaning_demo:
+        fixtures.append(
+            (CSV_CLEANING_SLUG, CSV_CLEANING_SERVICE, CSV_CLEANING_EXECUTION_CONFIG)
+        )
+    if settings.fixtures.seed_gpu_stress_demo:
+        fixtures.append(
+            (GPU_STRESS_SLUG, GPU_STRESS_SERVICE, GPU_STRESS_EXECUTION_CONFIG)
+        )
+    return fixtures
+
+
 async def seed_demo_services(
     session: AsyncSession,
 ) -> None:
     """Seed demo marketplace service catalog rows."""
-    if not settings.fixtures.enabled:
-        return
-    if not settings.fixtures.seed_csv_cleaning_demo:
-        return
-
-    await _upsert_service(session, CSV_CLEANING_SERVICE)
+    for _slug, service_fixture, _config in _enabled_fixtures():
+        await _upsert_service(session, service_fixture)
 
 
 async def register_demo_execution_configs(
@@ -285,32 +493,24 @@ async def register_demo_execution_configs(
     delay_s: float = 5.0,
 ) -> None:
     """Register demo provider execution configs without blocking app startup."""
-    if not settings.fixtures.enabled:
-        return
-    if not settings.fixtures.seed_csv_cleaning_demo:
-        return
-
-    for attempt in range(1, attempts + 1):
-        try:
-            await _register_execution_config(
-                grpc_channel,
-                CSV_CLEANING_SLUG,
-                CSV_CLEANING_EXECUTION_CONFIG,
+    for slug, _service_fixture, config in _enabled_fixtures():
+        for attempt in range(1, attempts + 1):
+            try:
+                await _register_execution_config(grpc_channel, slug, config)
+                break
+            except (asyncio.TimeoutError, grpc.RpcError) as exc:
+                logger.warning(
+                    "Fixture execution config registration failed for %s "
+                    "(attempt %d/%d): %s",
+                    slug,
+                    attempt,
+                    attempts,
+                    exc,
+                )
+                if attempt < attempts:
+                    await asyncio.sleep(delay_s)
+        else:
+            logger.error(
+                "Fixture execution config registration exhausted retries for %s",
+                slug,
             )
-            return
-        except (asyncio.TimeoutError, grpc.RpcError) as exc:
-            logger.warning(
-                "Fixture execution config registration failed for %s "
-                "(attempt %d/%d): %s",
-                CSV_CLEANING_SLUG,
-                attempt,
-                attempts,
-                exc,
-            )
-            if attempt < attempts:
-                await asyncio.sleep(delay_s)
-
-    logger.error(
-        "Fixture execution config registration exhausted retries for %s",
-        CSV_CLEANING_SLUG,
-    )

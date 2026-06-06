@@ -36,7 +36,7 @@
 	<title>{service.name}</title>
 </svelte:head>
 
-<PageHeader title={service.name} subtitle={service.description ?? ''}>
+<PageHeader title={service.name}>
 	{#snippet actions()}
 		<Button href={localizeHref(`/services/${service.slug}/invoke`)}>
 			{m.service_invoke()}

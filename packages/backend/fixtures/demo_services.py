@@ -52,20 +52,20 @@ DEFAULT_CSV = textwrap.dedent(
 
 CSV_CLEANING_DESCRIPTION = textwrap.dedent(
     """\
-    CSV contact cleaning demo service for validating data-processing jobs in the federated marketplace.
+    Service de démonstration pour nettoyer des contacts CSV et valider les traitements de données sur la marketplace fédérée.
 
-    What it does:
-    - Reads CSV content from the invocation payload, or uses the bundled demo fixture.
-    - Normalizes names, email addresses, cities, and missing ages.
-    - Drops rows without an email address and removes duplicate email addresses.
-    - Returns a structured JSON summary and a cleaned CSV artifact.
+    Fonctionnement :
+    - Lit le contenu CSV fourni dans la requête d'invocation ou utilise le jeu de données de démonstration intégré.
+    - Normalise les noms, les adresses e-mail, les villes et les âges manquants.
+    - Supprime les lignes sans adresse e-mail et les adresses e-mail en double.
+    - Retourne un résumé JSON structuré et un artefact CSV nettoyé.
 
-    Recommended invocation payload:
+    Payload d'invocation recommandé :
     {"csv_content": "full_name,email,city,age\\n Alice Smith ,ALICE@example.com, brussels ,29"}
 
-    Result contract:
-    - Structured JSON summary includes input row count, cleaned row count, dropped row count, duplicate count, and output file.
-    - A CSV artifact named cleaned_contacts.csv contains the cleaned rows.
+    Contrat de résultat :
+    - Le résumé JSON structuré contient le nombre de lignes en entrée, de lignes nettoyées, de lignes supprimées, de doublons et le fichier de sortie.
+    - Un artefact CSV nommé cleaned_contacts.csv contient les lignes nettoyées.
     """
 ).strip()
 
@@ -214,29 +214,29 @@ GPU_STRESS_IMAGE = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime"
 
 GPU_STRESS_DESCRIPTION = textwrap.dedent(
     """\
-    Synthetic GPU benchmark service for validating high-GPU scheduling and execution in the federated marketplace.
+    Service de benchmark GPU synthétique pour valider la planification et l'exécution de charges fortement consommatrices de GPU sur la marketplace fédérée.
 
-    What it does:
-    - Allocates large CUDA tensors and performs repeated matrix multiplications on the GPU.
-    - Produces sustained GPU compute load instead of a short probe or a model warm-up.
-    - Returns structured benchmark metadata plus a CSV artifact with per-iteration timings.
+    Fonctionnement :
+    - Alloue de grands tenseurs CUDA et exécute des multiplications de matrices répétées sur le GPU.
+    - Génère une charge de calcul GPU soutenue, plutôt qu'une simple sonde courte ou un préchauffage de modèle.
+    - Retourne des métadonnées de benchmark structurées et un artefact CSV contenant les temps de chaque itération.
 
-    Runtime requirements:
-    - A worker must advertise at least 1 GPU and expose tags compatible with this service: gpu, cuda, docker.
-    - The host running the worker must have a functional NVIDIA driver and NVIDIA Container Toolkit.
-    - The configured container image must already contain a CUDA-capable PyTorch build.
+    Prérequis d'exécution :
+    - Un worker doit déclarer au moins 1 GPU et exposer des tags compatibles avec ce service : gpu, cuda, docker.
+    - L'hôte qui exécute le worker doit disposer d'un pilote NVIDIA fonctionnel et de NVIDIA Container Toolkit.
+    - L'image de conteneur configurée doit déjà contenir une version de PyTorch compatible CUDA.
 
-    Recommended invocation payloads:
-    - Safe start for smaller GPUs: {"matrix_size": 8192, "iterations": 20, "warmup_steps": 5, "dtype": "float16"}
-    - Stronger load for 8 GB+ GPUs: {"matrix_size": 12288, "iterations": 30, "warmup_steps": 5, "dtype": "float16"}
+    Payloads d'invocation recommandés :
+    - Démarrage prudent pour les petits GPU : {"matrix_size": 8192, "iterations": 20, "warmup_steps": 5, "dtype": "float16"}
+    - Charge plus forte pour les GPU de 8 Go ou plus : {"matrix_size": 12288, "iterations": 30, "warmup_steps": 5, "dtype": "float16"}
 
-    Result contract:
-    - Structured JSON summary includes GPU name, tensor dtype, matrix size, iteration count, elapsed time, peak GPU memory, and average iteration latency.
-    - A CSV artifact named gpu_benchmark_metrics.csv contains per-iteration timings.
+    Contrat de résultat :
+    - Le résumé JSON structuré contient le nom du GPU, le type des tenseurs, la taille des matrices, le nombre d'itérations, le temps écoulé, le pic de mémoire GPU et la latence moyenne par itération.
+    - Un artefact CSV nommé gpu_benchmark_metrics.csv contient les temps de chaque itération.
 
-    Important caveats:
-    - This is a synthetic benchmark, not a model inference workload.
-    - If no worker exposes a GPU, the invocation may remain accepted and never start.
+    Points d'attention :
+    - Il s'agit d'un benchmark synthétique, pas d'une charge d'inférence de modèle.
+    - Si aucun worker n'expose de GPU, l'invocation peut rester acceptée sans jamais démarrer.
     """
 ).strip()
 

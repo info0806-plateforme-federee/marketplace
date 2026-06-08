@@ -27,11 +27,23 @@
 	const artifactUrl = $derived(liveArtifactUrl ?? inv.artifact_url);
 	const resultProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/result-file`);
 	const artifactProxyUrl = $derived(`${data.apiBaseUrl}/api/invocations/${inv.id}/artifact`);
+	const artifactFilename = $derived(filenameFromUrl(artifactUrl) ?? `${inv.id}-artifact`);
 	const errorMessage = $derived(liveErrorMessage ?? inv.error_message);
 	const startedAt = $derived(liveStartedAt ?? inv.started_at);
 	const endedAt = $derived(liveEndedAt ?? inv.ended_at);
 	const costFinal = $derived(liveCostFinal ?? inv.cost_final);
 	const isLive = $derived(!TERMINAL_STATUSES.has(status));
+
+	function filenameFromUrl(url: string | null): string | null {
+		if (!url) return null;
+		try {
+			const pathname = new URL(url).pathname;
+			const filename = decodeURIComponent(pathname.split('/').filter(Boolean).at(-1) ?? '');
+			return filename && filename !== '.' && filename !== '..' ? filename : null;
+		} catch {
+			return null;
+		}
+	}
 
 	// Fetch result payload from presigned URL (provider S3)
 	let resultData = $state<Record<string, unknown> | null>(null);
@@ -197,9 +209,13 @@
 		{#if artifactUrl}
 			<Card>
 				<h3 class="text-foreground mb-2 text-sm font-semibold">{m.invocation_artifact()}</h3>
-				<a href={artifactProxyUrl} class="text-accent text-sm break-all hover:underline" download
-					>{m.invocation_artifact()}</a
+				<a
+					href={artifactProxyUrl}
+					class="text-accent text-sm break-all hover:underline"
+					download={artifactFilename}
 				>
+					{artifactFilename}
+				</a>
 			</Card>
 		{/if}
 	</div>

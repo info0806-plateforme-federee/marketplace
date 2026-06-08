@@ -53,6 +53,8 @@ class FixturesConfig(BaseModel):
 
     enabled: bool = True
     seed_csv_cleaning_demo: bool = True
+    seed_gpu_stress_demo: bool = True
+    seed_3d_render_demo: bool = True
 
 
 class Settings(BaseSettings):

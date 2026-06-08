@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime
@@ -145,6 +147,26 @@ async def _fetch_provider_url(url: str) -> tuple[bytes, str, str | None]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Provider object fetch failed: {exc}",
         ) from exc
+
+
+def _content_disposition_with_filename(
+    content_disposition: str | None,
+    url: str,
+    fallback_filename: str,
+) -> str:
+    if content_disposition and re.search(r"\bfilename\*?=", content_disposition, re.I):
+        return content_disposition
+
+    parsed = urllib.parse.urlparse(url)
+    filename = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
+    if not filename or filename in {".", ".."}:
+        filename = fallback_filename
+
+    safe_filename = filename.replace("\\", "_").replace('"', "")
+    disposition_type = (content_disposition or "attachment").split(";", 1)[0].strip()
+    if not disposition_type:
+        disposition_type = "attachment"
+    return f'{disposition_type}; filename="{safe_filename}"'
 
 
 async def _get_refreshed_invocation(
@@ -324,5 +346,11 @@ async def get_invocation_artifact(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not available")
 
     body, content_type, content_disposition = await _fetch_provider_url(invocation.artifact_url)
-    headers = {"content-disposition": content_disposition or "attachment"}
+    headers = {
+        "content-disposition": _content_disposition_with_filename(
+            content_disposition,
+            invocation.artifact_url,
+            f"{invocation.service.slug}-artifact",
+        )
+    }
     return Response(content=body, media_type=content_type, headers=headers)

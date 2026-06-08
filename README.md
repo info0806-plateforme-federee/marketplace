@@ -74,8 +74,8 @@ dans le *network namespace* du sidecar `tailscale` et joint `node:50052`).
      (`alembic upgrade head`) ;
    - les **fixtures de démonstration** sont semées par défaut
      (`FIXTURES__ENABLED=true`), ce qui crée les services `csv-cleaning-demo` et
-     `gpu-stress-benchmark` (avec leur configuration d'exécution enregistrée
-     auprès du nœud).
+     `gpu-stress-benchmark` et `3d-render-demo` (avec leur configuration
+     d'exécution enregistrée auprès du nœud).
 
 4. **Vérifier** :
 
@@ -120,6 +120,7 @@ frontend local pour cibler le backend conteneurisé. Voir
 | `DATABASE__*`                | `compose.yaml` | `marketplace`            | Connexion PostgreSQL. |
 | `MARKETPLACE__SITE_ID/NAME`  | `compose.yaml` | `site-local` / `Local Site` | Identité du site marketplace. |
 | `FIXTURES__ENABLED`          | code (défaut)  | `true`                   | Semence les services de démonstration au démarrage. |
+| `FIXTURES__SEED_3D_RENDER_DEMO` | code (défaut) | `true`                | Active la fixture `3d-render-demo`. |
 | `UID` / `GID`                | env hôte (opt.)| `1000`                   | UID/GID dans les conteneurs. |
 
 Configuration via **Pydantic Settings**, délimiteur `__` (ex. `DATABASE__HOST`,

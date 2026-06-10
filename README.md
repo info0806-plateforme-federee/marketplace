@@ -105,7 +105,6 @@ npm run format     # auto-formatage
 
 Définissez `MARKETPLACE_API_URL=http://localhost:8090` dans l'environnement du
 frontend local pour cibler le backend conteneurisé. Voir
-[`packages/frontend/CLAUDE.md`](./packages/frontend/CLAUDE.md) pour les détails.
 
 ## Variables d'environnement
 

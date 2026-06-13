@@ -1,3 +1,16 @@
+/**
+ * Page de publication de service + action de formulaire.
+ *
+ * `load` n'a rien à récupérer (le formulaire démarre vide). L'action par défaut
+ * s'exécute en deux étapes :
+ *   1. Créer le *contrat* de service dans la marketplace (métadonnées de catalogue,
+ *      tarification, schémas d'entrée/sortie).
+ *   2. Si des champs de config d'exécution ont été fournis (image/code/commande/...),
+ *      les transmettre au nœud fournisseur via l'endpoint proxy `execution-config`
+ *      de la marketplace — cette config n'est pas stockée ici.
+ * Les échecs de champs requis et de validation JSON sont renvoyés via `fail` ; un
+ * succès redirige vers la page de détail du nouveau service.
+ */
 import type { PageServerLoad, Actions } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';
@@ -17,7 +30,7 @@ export const actions: Actions = {
 		const apiBase = env.MARKETPLACE_API_URL ?? 'http://localhost:8090';
 		const formData = await request.formData();
 
-		// --- Service contract fields ---
+		// --- Champs du contrat de service ---
 		const name = formData.get('name') as string;
 		const description = formData.get('description') as string;
 		const category = formData.get('category') as string;
@@ -35,7 +48,7 @@ export const actions: Actions = {
 		const timeout_s_raw = formData.get('timeout_s') as string;
 		const terms_of_use = formData.get('terms_of_use') as string;
 
-		// --- Execution config fields (forwarded to node, not stored in marketplace) ---
+		// --- Champs de config d'exécution (transmis au nœud, non stockés dans la marketplace) ---
 		const image = formData.get('image') as string;
 		const command = formData.get('command') as string;
 		const code = formData.get('code') as string;
@@ -74,7 +87,7 @@ export const actions: Actions = {
 		const timeout_s = timeout_s_raw ? Number(timeout_s_raw) : null;
 
 		try {
-			// Step 1: Create the service contract in marketplace
+			// Étape 1 : Créer le contrat de service dans la marketplace
 			const service = await client.createService({
 				name,
 				description: description || undefined,
@@ -99,7 +112,7 @@ export const actions: Actions = {
 				terms_of_use: terms_of_use || undefined
 			});
 
-			// Step 2: Register execution config on the provider node (via proxy)
+			// Étape 2 : Enregistrer la config d'exécution sur le nœud fournisseur (via proxy)
 			const hasExecConfig = image || code || command;
 			if (hasExecConfig) {
 				const execConfig: Record<string, unknown> = {};

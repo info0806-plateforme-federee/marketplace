@@ -1,3 +1,9 @@
+<!--
+@component
+Page catalogue de services : barre de filtres, une grille de résultats (ou un état
+vide), et la pagination. Les filtres et la page vivent dans l'URL, donc changer de
+page ne fait que naviguer et laisse le loader serveur re-récupérer les données.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -12,6 +18,7 @@
 
 	let { data } = $props();
 
+	/** Navigue vers un nouveau numéro de page, en préservant les params de requête existants. */
 	function handlePageChange(newPage: number) {
 		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', String(newPage));

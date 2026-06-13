@@ -1,3 +1,10 @@
+<!--
+@component
+Tuile de catalogue pour un service : nom, badge de prix, description tronquée,
+badges de catégorie et de type, et nom du fournisseur. Toute la carte est un lien
+vers la page de détail du service. `m.*` sont des fonctions de message localisé
+(paraglide).
+-->
 <script lang="ts">
     import type { ServiceSummary } from '$lib/types/marketplace';
     import { localizeHref } from '$lib/paraglide/runtime';

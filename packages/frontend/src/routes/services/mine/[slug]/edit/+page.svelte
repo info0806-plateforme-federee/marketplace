@@ -1,3 +1,11 @@
+<!--
+@component
+Formulaire d'édition de service. Contrairement à l'assistant de publication
+multi-étapes, c'est un unique formulaire à plat dont les champs sont pré-remplis
+depuis le `service` chargé (schémas affichés en JSON formaté). La soumission POST
+vers l'action de cette route, qui construit une mise à jour partielle à partir des
+champs non vides ; `form.error` fait remonter les échecs.
+-->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import { localizeHref } from '$lib/paraglide/runtime';

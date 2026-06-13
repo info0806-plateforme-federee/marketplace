@@ -1,3 +1,9 @@
+<!--
+@component
+Liste déroulante `<select>` avec libellé. `options` est la liste des choix
+`{ value, label }` ; `value` est `bind:`-able ; un `placeholder` optionnel s'affiche
+comme première ligne désactivée.
+-->
 <script lang="ts">
 	interface Option {
 		value: string;

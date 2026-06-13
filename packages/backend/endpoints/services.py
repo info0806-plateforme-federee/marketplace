@@ -1,3 +1,16 @@
+"""API REST des services.
+
+CRUD + recherche sur le catalogue de services de la marketplace, plus deux
+endpoints qui relaient la *config d'exécution* d'un service (image/code/ressources)
+vers le nœud fournisseur via le gateway gRPC. Les données de catalogue vivent dans
+la base Postgres locale ; les configs d'exécution vivent sur le nœud fournisseur,
+donc ce module ne fait que les transmettre.
+
+Les slugs sont l'identifiant public dans les URLs et sont dérivés du nom du
+service ; l'unicité est garantie en ajoutant un court suffixe aléatoire en cas de
+collision.
+"""
+
 from __future__ import annotations
 
 import math
@@ -30,10 +43,18 @@ async def create_service(
     body: CreateServiceRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Service:
-    """Publish a new service to the marketplace catalog."""
+    """Publie un nouveau service au catalogue de la marketplace.
+
+    Arguments :
+        body: Définition de service validée (nom, tarification, schémas, etc.).
+        db: Session de base de données injectée.
+
+    Retourne :
+        La ligne Service créée (sérialisée en ServiceResponse, HTTP 201).
+    """
     slug = slugify(body.name)
 
-    # Ensure slug uniqueness by appending a short suffix when needed
+    # Garantit l'unicité du slug en ajoutant un court suffixe si nécessaire
     existing = await db.execute(select(Service).where(Service.slug == slug))
     if existing.scalar_one_or_none() is not None:
         slug = f"{slug}-{str(uuid.uuid7())[:8]}"
@@ -79,10 +100,26 @@ async def list_services(
     per_page: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedResponse[ServiceSummaryResponse]:
-    """List and search services in the marketplace catalog."""
+    """Liste et recherche les services dans le catalogue de la marketplace.
+
+    Arguments :
+        search: Sous-chaîne insensible à la casse comparée au nom et à la description.
+        category: Filtre exact de catégorie.
+        service_type: Filtre exact de type de service.
+        price_type: Filtre exact de modèle de tarification.
+        provider_site_id: Restreint aux services d'un seul site fournisseur.
+        status: Filtre de statut ; par défaut seulement `active` si omis.
+        visibility: Filtre de visibilité ; par défaut seulement `public` si omis.
+        page: Numéro de page (base 1).
+        per_page: Taille de page (1–100).
+        db: Session de base de données injectée.
+
+    Retourne :
+        Un PaginatedResponse d'éléments ServiceSummaryResponse plus les métadonnées de pagination.
+    """
     query = select(Service)
 
-    # Default: only active + public services unless filters override
+    # Par défaut : seulement les services actifs + publics, sauf si des filtres priment
     if status is None:
         query = query.where(Service.status == ServiceStatus.active.value)
     else:
@@ -107,12 +144,12 @@ async def list_services(
     if provider_site_id:
         query = query.where(Service.provider_site_id == provider_site_id)
 
-    # Count total matching rows
+    # Compte le total de lignes correspondantes
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
 
-    # Paginate
+    # Pagine
     offset = (page - 1) * per_page
     result = await db.execute(
         query.order_by(Service.created_at.desc()).offset(offset).limit(per_page)
@@ -132,7 +169,18 @@ async def list_services(
 
 @router.get("/{slug}/pricing", response_model=ServicePricingResponse)
 async def get_service_pricing(slug: str, db: AsyncSession = Depends(get_db)) -> ServicePricingResponse:
-    """Return pricing details for a service."""
+    """Renvoie les détails de tarification d'un service public.
+
+    Arguments :
+        slug: Slug du service depuis le chemin d'URL.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Un ServicePricingResponse (type de prix, montant, devise).
+
+    Lève :
+        HTTPException: 404 si aucun service public ne correspond au slug.
+    """
     result = await db.execute(
         select(Service).where(Service.slug == slug, Service.visibility == "public")
     )
@@ -148,7 +196,19 @@ async def get_service(
     include_private: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
 ) -> Service:
-    """Return a single service by its slug."""
+    """Renvoie un service unique par son slug.
+
+    Arguments :
+        slug: Slug du service depuis le chemin d'URL.
+        include_private: Quand False (défaut), seuls les services publics sont visibles.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Le Service correspondant (sérialisé en ServiceResponse).
+
+    Lève :
+        HTTPException: 404 si aucun service correspondant (et visible) n'est trouvé.
+    """
     query = select(Service).where(Service.slug == slug)
     if not include_private:
         query = query.where(Service.visibility == "public")
@@ -165,7 +225,23 @@ async def update_service(
     body: UpdateServiceRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Service:
-    """Partially update a service by its slug."""
+    """Met à jour partiellement un service par son slug.
+
+    Seuls les champs présents dans le corps de la requête sont modifiés. Mettre à
+    jour le nom régénère le slug (avec un suffixe en cas de collision), et les
+    champs enum sont convertis en leurs valeurs chaîne avant écriture.
+
+    Arguments :
+        slug: Slug du service à mettre à jour.
+        body: Payload de mise à jour partielle ; les champs non définis restent inchangés.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Le Service mis à jour (sérialisé en ServiceResponse).
+
+    Lève :
+        HTTPException: 404 si aucun service ne correspond au slug.
+    """
     result = await db.execute(select(Service).where(Service.slug == slug))
     service = result.scalar_one_or_none()
     if service is None:
@@ -173,7 +249,7 @@ async def update_service(
 
     update_data = body.model_dump(exclude_unset=True)
 
-    # If name is being updated, regenerate slug
+    # Si le nom est mis à jour, régénère le slug
     if "name" in update_data:
         new_slug = slugify(update_data["name"])
         if new_slug != service.slug:
@@ -182,7 +258,7 @@ async def update_service(
                 new_slug = f"{new_slug}-{str(uuid.uuid7())[:8]}"
             update_data["slug"] = new_slug
 
-    # Apply enum conversions
+    # Applique les conversions d'enum
     for enum_field in ("service_type", "status", "price_type", "visibility", "execution_mode"):
         if enum_field in update_data and hasattr(update_data[enum_field], "value"):
             update_data[enum_field] = update_data[enum_field].value
@@ -197,7 +273,21 @@ async def update_service(
 
 @router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service(slug: str, db: AsyncSession = Depends(get_db)) -> None:
-    """Soft-delete a service by setting its status to disabled."""
+    """Supprime en douceur un service en passant son statut à disabled.
+
+    La ligne est conservée (afin que les invocations existantes se résolvent encore)
+    mais masquée du listage actif/public par défaut.
+
+    Arguments :
+        slug: Slug du service à désactiver.
+        db: Session de base de données injectée.
+
+    Retourne :
+        None (HTTP 204).
+
+    Lève :
+        HTTPException: 404 si aucun service ne correspond au slug.
+    """
     result = await db.execute(select(Service).where(Service.slug == slug))
     service = result.scalar_one_or_none()
     if service is None:
@@ -213,7 +303,26 @@ async def register_execution_config(
     body: dict,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Proxy execution config to the provider node via gateway gRPC."""
+    """Relaie la config d'exécution d'un service vers le nœud fournisseur via le gateway gRPC.
+
+    La config (image de conteneur ou code inline, commande, args/env par défaut et
+    minimums de ressources) est stockée sur le nœud fournisseur, pas dans cette base ;
+    cet endpoint valide que le service existe localement, puis transmet la config.
+    Seuls les champs présents dans `body` sont posés sur la requête gRPC (les champs
+    proto sont optionnels).
+
+    Arguments :
+        slug: Slug du service auquel appartient la config.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        body: Dict de config d'exécution brut (image/code/command/args/env/ressources).
+        db: Session de base de données injectée.
+
+    Retourne :
+        Un dict avec `service_slug` et `created` (True si nouvellement créée).
+
+    Lève :
+        HTTPException: 404 si le service est inconnu ; 502 sur erreur gRPC du gateway.
+    """
     result = await db.execute(select(Service).where(Service.slug == slug))
     service = result.scalar_one_or_none()
     if service is None:
@@ -225,6 +334,7 @@ async def register_execution_config(
         service_slug=slug,
         retry_count=body.get("retry_count", 0),
     )
+    # Ne pose que les champs proto optionnels réellement fournis.
     if body.get("image"):
         grpc_request.image = body["image"]
     if body.get("code"):
@@ -258,7 +368,24 @@ async def get_execution_config(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Fetch execution config from the provider node via gateway gRPC."""
+    """Récupère la config d'exécution d'un service depuis le nœud fournisseur via le gateway gRPC.
+
+    Les champs proto optionnels ne sont copiés dans le résultat que s'ils sont posés
+    (`HasField`), donc le dict renvoyé contient exactement les champs que le
+    fournisseur a configurés.
+
+    Arguments :
+        slug: Slug du service dont récupérer la config.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Le dict de config d'exécution, ou un dict vide si le fournisseur n'en a pas
+        encore enregistré (le gateway renvoie NOT_FOUND).
+
+    Lève :
+        HTTPException: 404 si le service est inconnu ; 502 sur autre erreur du gateway.
+    """
     result = await db.execute(select(Service).where(Service.slug == slug))
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
@@ -269,6 +396,7 @@ async def get_execution_config(
             gateway_pb2.GetServiceConfigRequest(service_slug=slug)
         )
         config: dict = {"service_slug": resp.service_slug, "retry_count": resp.retry_count}
+        # Ne recopie chaque champ optionnel que si le fournisseur l'a posé.
         if resp.HasField("image"):
             config["image"] = resp.image
         if resp.HasField("code"):
@@ -287,6 +415,7 @@ async def get_execution_config(
             config["min_mem_mb"] = resp.min_mem_mb
         return config
     except grpc.RpcError as e:
+        # Aucune config encore enregistrée est un état normal, pas une erreur.
         if hasattr(e, "code") and e.code() == grpc.StatusCode.NOT_FOUND:
             return {}
         raise HTTPException(

@@ -1,3 +1,15 @@
+<!--
+@component
+Assistant multi-étapes « publier un service » (7 étapes : bases, type, tarification,
+visibilité, schémas, config d'exécution, avancé + récapitulatif).
+
+Chaque étape visible se lie à un `$state` local et ne rend que ses propres champs,
+mais un ensemble parallèle d'`<input>` cachés (toujours présents) porte chaque
+valeur pour que tout le formulaire se soumette d'un coup, quelle que soit l'étape
+courante. `validateStep` conditionne la navigation vers l'avant ; la dernière étape
+montre un récapitulatif éditable avant la soumission. Le formulaire POST vers
+l'action de cette route (amélioré via `use:enhance`).
+-->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import { localizeHref } from '$lib/paraglide/runtime';
@@ -18,7 +30,7 @@
 	let currentStep = $state(1);
 	let stepError = $state('');
 
-	// --- Form state ---
+	// --- État du formulaire (un $state par champ ; reflété dans les inputs cachés ci-dessous) ---
 	let name = $state('');
 	let description = $state('');
 	let category = $state('');
@@ -45,7 +57,7 @@
 	let timeout_s = $state(30);
 	let terms_of_use = $state('');
 
-	// --- Option lists ---
+	// --- Listes d'options ---
 	const serviceTypes = [
 		{ value: 'compute', label: m.type_compute() },
 		{ value: 'data', label: m.type_data() },
@@ -106,6 +118,10 @@
 		m.wizard_step_advanced()
 	];
 
+	/**
+	 * Valide les champs appartenant à `step` (champs requis, parsabilité JSON).
+	 * Pose `stepError` et renvoie false en cas d'échec ; les étapes sans règle passent.
+	 */
 	function validateStep(step: number): boolean {
 		stepError = '';
 		switch (step) {
@@ -150,22 +166,26 @@
 		return true;
 	}
 
+	/** Avance à l'étape suivante si l'étape courante valide. */
 	function nextStep() {
 		if (validateStep(currentStep)) {
 			currentStep = Math.min(currentStep + 1, TOTAL_STEPS);
 		}
 	}
 
+	/** Recule d'une étape (sans validation). */
 	function prevStep() {
 		stepError = '';
 		currentStep = Math.max(currentStep - 1, 1);
 	}
 
+	/** Saute directement à une étape (utilisé par l'indicateur et les liens « éditer » du récapitulatif). */
 	function goToStep(step: number) {
 		stepError = '';
 		currentStep = step;
 	}
 
+	/** Recherche le libellé d'affichage d'une option par sa valeur (pour la vue récapitulative). */
 	function getLabelForValue(options: { value: string; label: string }[], val: string): string {
 		return options.find((o) => o.value === val)?.label ?? val;
 	}
@@ -181,15 +201,15 @@
 	{/snippet}
 </PageHeader>
 
-<!-- Step indicator -->
+<!-- Indicateur d'étape -->
 <div class="mb-6 flex items-start">
 	{#each stepLabels as label, i (i)}
 		{@const step = i + 1}
-		<!-- Connector line before step (except first) -->
+		<!-- Ligne de connexion avant l'étape (sauf la première) -->
 		{#if i > 0}
 			<div class="mt-4 h-0.5 flex-1 {step <= currentStep ? 'bg-emerald-500' : 'bg-secondary'}"></div>
 		{/if}
-		<!-- Step column: circle + label stacked -->
+		<!-- Colonne d'étape : cercle + libellé empilés -->
 		<button
 			type="button"
 			class="flex w-16 shrink-0 flex-col items-center gap-1 sm:w-20"
@@ -242,7 +262,7 @@
 	</p>
 
 	<form method="POST" use:enhance class="space-y-6">
-		<!-- Hidden inputs for all fields (always present for submission) -->
+		<!-- Inputs cachés pour tous les champs (toujours présents pour la soumission) -->
 		<input type="hidden" name="name" value={name} />
 		<input type="hidden" name="description" value={description} />
 		<input type="hidden" name="category" value={category} />
@@ -269,7 +289,7 @@
 		<input type="hidden" name="timeout_s" value={String(timeout_s)} />
 		<input type="hidden" name="terms_of_use" value={terms_of_use} />
 
-		<!-- Step 1: Basic Info -->
+		<!-- Étape 1 : Infos de base -->
 		{#if currentStep === 1}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_basic()}</h2>
 			<div class="space-y-4">
@@ -305,7 +325,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 2: Type & Execution -->
+		<!-- Étape 2 : Type & exécution -->
 		{#if currentStep === 2}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_type()}</h2>
 			<div class="space-y-4">
@@ -334,7 +354,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 3: Pricing -->
+		<!-- Étape 3 : Tarification -->
 		{#if currentStep === 3}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_pricing()}</h2>
 			<div class="space-y-4">
@@ -366,7 +386,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 4: Visibility -->
+		<!-- Étape 4 : Visibilité -->
 		{#if currentStep === 4}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_visibility()}</h2>
 			<div class="space-y-4">
@@ -381,7 +401,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 5: Schemas -->
+		<!-- Étape 5 : Schémas -->
 		{#if currentStep === 5}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_schemas()}</h2>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -402,7 +422,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 6: Execution Config -->
+		<!-- Étape 6 : Config d'exécution -->
 		{#if currentStep === 6}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_execution()}</h2>
 			<div class="space-y-4">
@@ -486,7 +506,7 @@
 			</div>
 		{/if}
 
-		<!-- Step 7: Advanced & Summary -->
+		<!-- Étape 7 : Avancé & récapitulatif -->
 		{#if currentStep === 7}
 			<h2 class="text-foreground text-lg font-semibold">{m.wizard_step_advanced()}</h2>
 			<div class="space-y-4">
@@ -519,11 +539,11 @@
 				/>
 			</div>
 
-			<!-- Summary -->
+			<!-- Récapitulatif -->
 			<div class="border-border mt-6 border-t pt-6">
 				<h3 class="text-foreground mb-4 text-lg font-semibold">{m.wizard_summary()}</h3>
 				<div class="space-y-4">
-					<!-- Basic Info -->
+					<!-- Infos de base -->
 					<div class="border-border rounded-md border p-4">
 						<div class="mb-2 flex items-center justify-between">
 							<h4 class="text-foreground text-sm font-medium">{m.wizard_step_basic()}</h4>
@@ -559,7 +579,7 @@
 						{/if}
 					</div>
 
-					<!-- Type & Execution -->
+					<!-- Type & exécution -->
 					<div class="border-border rounded-md border p-4">
 						<div class="mb-2 flex items-center justify-between">
 							<h4 class="text-foreground text-sm font-medium">{m.wizard_step_type()}</h4>
@@ -581,7 +601,7 @@
 						</dl>
 					</div>
 
-					<!-- Pricing -->
+					<!-- Tarification -->
 					<div class="border-border rounded-md border p-4">
 						<div class="mb-2 flex items-center justify-between">
 							<h4 class="text-foreground text-sm font-medium">{m.wizard_step_pricing()}</h4>
@@ -601,7 +621,7 @@
 						</dl>
 					</div>
 
-					<!-- Visibility -->
+					<!-- Visibilité -->
 					<div class="border-border rounded-md border p-4">
 						<div class="mb-2 flex items-center justify-between">
 							<h4 class="text-foreground text-sm font-medium">{m.wizard_step_visibility()}</h4>
@@ -619,7 +639,7 @@
 						</dl>
 					</div>
 
-					<!-- Execution Config -->
+					<!-- Config d'exécution -->
 					{#if image || code || command}
 						<div class="border-border rounded-md border p-4">
 							<div class="mb-2 flex items-center justify-between">

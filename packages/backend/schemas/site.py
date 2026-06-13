@@ -1,3 +1,9 @@
+"""Schémas Pydantic de requête/réponse pour l'API des sites.
+
+`CreateSiteRequest` valide les données d'enregistrement ; `SiteResponse` sérialise
+une ligne ORM `Site` (via `from_attributes = True`) pour les clients.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,7 +14,7 @@ from models.site import SiteStatus
 
 
 class CreateSiteRequest(BaseModel):
-    """Payload for registering a new federated site."""
+    """Payload pour enregistrer un nouveau site fédéré."""
 
     name: str
     description: str | None = None
@@ -17,7 +23,7 @@ class CreateSiteRequest(BaseModel):
 
 
 class SiteResponse(BaseModel):
-    """Full representation of a site returned to clients."""
+    """Représentation complète d'un site renvoyée aux clients."""
 
     id: str
     name: str

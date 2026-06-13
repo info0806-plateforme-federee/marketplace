@@ -1,3 +1,8 @@
+<!--
+@component
+Conteneur de contenu bordé avec des régions snippet optionnelles `header` et
+`footer` autour du corps principal `children`.
+-->
 <script lang="ts">
     import type { Snippet } from 'svelte';
 

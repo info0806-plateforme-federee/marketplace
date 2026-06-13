@@ -1,3 +1,8 @@
+<!--
+@component
+Tuile de métrique simple affichant une grande `value` sous un petit `label`
+(utilisée sur le tableau de bord d'accueil).
+-->
 <script lang="ts">
     interface Props {
         label: string;

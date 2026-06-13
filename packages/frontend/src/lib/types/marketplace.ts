@@ -1,5 +1,15 @@
+/**
+ * Miroir TypeScript du contrat d'API du backend de la marketplace.
+ *
+ * Ces types correspondent aux schémas Pydantic du backend (les noms de champs en
+ * snake_case sont conservés pour que le JSON se désérialise directement). Les
+ * garder synchronisés avec `packages/backend/schemas/` et les enums du modèle.
+ * Regroupés ci-dessous en : enums chaîne, entités principales, payloads de
+ * requête/filtre, et l'enveloppe de pagination.
+ */
+
 // ---------------------------------------------------------------------------
-// Enums (string literal union types)
+// Enums (types union de littéraux de chaîne)
 // ---------------------------------------------------------------------------
 
 export type SiteStatus = 'active' | 'inactive' | 'pending';
@@ -23,7 +33,7 @@ export type InvocationStatus =
 	| 'cancelled';
 
 // ---------------------------------------------------------------------------
-// Core entities
+// Entités principales
 // ---------------------------------------------------------------------------
 
 export interface Site {
@@ -111,7 +121,7 @@ export interface InvocationResult {
 }
 
 // ---------------------------------------------------------------------------
-// Request / filter types
+// Types de requête / filtre
 // ---------------------------------------------------------------------------
 
 export interface CreateServiceRequest {
@@ -167,7 +177,7 @@ export interface CreateSiteRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Pagination wrapper
+// Enveloppe de pagination
 // ---------------------------------------------------------------------------
 
 export interface PaginatedResponse<T> {

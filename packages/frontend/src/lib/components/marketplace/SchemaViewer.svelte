@@ -1,3 +1,9 @@
+<!--
+@component
+Affiche un schéma JSON d'entrée/sortie de service sous forme de tableau
+champ/type. Montre un espace réservé quand le schéma est vide ; les valeurs de type
+non-chaîne sont sérialisées en JSON.
+-->
 <script lang="ts">
     interface Props {
         schema: Record<string, unknown>;

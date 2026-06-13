@@ -1,3 +1,18 @@
+"""Point d'entrée de l'application API de la marketplace.
+
+Construit l'app FastAPI et câble son cycle de vie (`lifespan`) :
+  - seede l'enregistrement du site local et les services de démonstration intégrés,
+  - ouvre le canal gRPC partagé vers le gateway du nœud (stocké sur
+    `app.state.grpc_channel`),
+  - lance deux tâches d'arrière-plan : l'enregistrement des configs d'exécution de
+    démo sur le nœud fournisseur, et la réconciliation périodique des statuts
+    d'invocation en cours,
+  - démonte tout cela à l'arrêt.
+
+Tous les routeurs sont montés sous `/api` (sauf le routeur WebSocket), et une
+sonde de vivacité `/healthz` est exposée.
+"""
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -23,7 +38,14 @@ logger = logging.getLogger(__name__)
 
 
 async def _seed_local_site() -> None:
-    """Ensure the local site record exists in the database."""
+    """Garantit l'existence de l'enregistrement du site local dans la base.
+
+    Crée une ligne Site de confiance pour le `site_id` configuré de cette instance
+    s'il n'en existe pas déjà une ; idempotent entre redémarrages.
+
+    Retourne :
+        None.
+    """
     async with async_session_factory() as session:
         result = await session.execute(
             select(Site).where(Site.id == settings.marketplace.site_id)
@@ -41,7 +63,19 @@ async def _seed_local_site() -> None:
 
 
 async def _poll_pending_invocations(grpc_channel: grpc.aio.Channel) -> None:
-    """Background task that periodically refreshes accepted/running invocations."""
+    """Réconcilie périodiquement les invocations en cours face au gateway.
+
+    Toutes les 30 s, charge toutes les invocations acceptées/en cours et rafraîchit
+    chacune. C'est un filet de sécurité pour que les statuts convergent même si un
+    client n'ouvre jamais le flux WebSocket. Tourne jusqu'à annulation à l'arrêt ;
+    les erreurs par cycle sont journalisées et la boucle continue.
+
+    Arguments :
+        grpc_channel: Canal ouvert vers le gateway, partagé avec le chemin de requête.
+
+    Retourne :
+        None. Ne retourne jamais normalement ; tourne jusqu'à l'annulation de la tâche.
+    """
     while True:
         await asyncio.sleep(30)
         try:
@@ -63,6 +97,18 @@ async def _poll_pending_invocations(grpc_channel: grpc.aio.Channel) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Gère le démarrage/l'arrêt : seed des données, ouverture du canal gRPC, tâches d'arrière-plan.
+
+    Tout ce qui précède `yield` s'exécute au démarrage ; tout ce qui suit s'exécute
+    à l'arrêt (annulation des tâches d'arrière-plan, fermeture du canal gRPC,
+    libération du moteur).
+
+    Arguments :
+        app: L'application FastAPI dont l'attribut `state` détient le canal gRPC partagé.
+
+    Génère :
+        Le contrôle à l'application en cours d'exécution pour toute sa durée de vie.
+    """
     await _seed_local_site()
     app.state.grpc_channel = grpc.aio.insecure_channel(settings.gateway.url)
     logger.info("Gateway gRPC channel: %s", settings.gateway.url)
@@ -98,5 +144,9 @@ app.include_router(ws_router)
 
 @app.get("/healthz")
 async def health_check() -> dict[str, str]:
-    """Liveness probe endpoint."""
+    """Endpoint de sonde de vivacité.
+
+    Retourne :
+        Un payload constant `{"status": "ok"}` lorsque le processus répond.
+    """
     return {"status": "ok"}

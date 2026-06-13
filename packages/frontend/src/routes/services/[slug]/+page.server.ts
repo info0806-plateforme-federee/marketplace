@@ -1,3 +1,8 @@
+/**
+ * Loader de la page de détail d'un service.
+ *
+ * Charge un service public par son slug, ou lève une 404 s'il n'existe pas.
+ */
 import type { PageServerLoad } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';

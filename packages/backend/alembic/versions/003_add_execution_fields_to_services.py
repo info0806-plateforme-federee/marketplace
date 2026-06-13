@@ -19,6 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Ajoute les colonnes de config d'exécution (image/code/ressources) à `services`.
+
+    Note : ces colonnes ont ensuite été supprimées dans la migration 004 une fois la
+    config d'exécution déplacée hors de la base marketplace vers le nœud fournisseur.
+    """
     op.add_column("services", sa.Column("image", sa.String(512), nullable=True))
     op.add_column("services", sa.Column("code", sa.Text(), nullable=True))
     op.add_column("services", sa.Column("command", sa.String(1024), nullable=True))
@@ -31,6 +36,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Supprime les colonnes de config d'exécution ajoutées par cette migration."""
     op.drop_column("services", "retry_count")
     op.drop_column("services", "min_mem_mb")
     op.drop_column("services", "min_gpu")

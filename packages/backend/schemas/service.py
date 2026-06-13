@@ -1,3 +1,12 @@
+"""Schémas Pydantic de requête/réponse pour l'API des services.
+
+Ils définissent les formes JSON que la couche HTTP accepte et renvoie, distinctes
+des modèles ORM SQLAlchemy. Les schémas de requête valident les payloads entrants
+(et réutilisent les enums du modèle pour les champs contraints) ; les schémas de
+réponse posent `from_attributes = True` afin d'être construits directement depuis
+les objets ORM.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,7 +19,7 @@ from schemas.site import SiteResponse
 
 
 class _SiteSummary(BaseModel):
-    """Minimal site info embedded in service responses."""
+    """Infos minimales de site intégrées dans les réponses de service."""
 
     id: str
     name: str
@@ -20,7 +29,7 @@ class _SiteSummary(BaseModel):
 
 
 class CreateServiceRequest(BaseModel):
-    """Payload for publishing a new service to the catalog."""
+    """Payload pour publier un nouveau service au catalogue."""
 
     name: str
     description: str | None = None
@@ -42,7 +51,7 @@ class CreateServiceRequest(BaseModel):
 
 
 class UpdateServiceRequest(BaseModel):
-    """Partial update payload — all fields are optional."""
+    """Payload de mise à jour partielle — tous les champs sont optionnels."""
 
     name: str | None = None
     description: str | None = None
@@ -64,7 +73,7 @@ class UpdateServiceRequest(BaseModel):
 
 
 class ServiceResponse(BaseModel):
-    """Full representation of a service returned to clients."""
+    """Représentation complète d'un service renvoyée aux clients."""
 
     id: str
     provider_site_id: str
@@ -95,7 +104,7 @@ class ServiceResponse(BaseModel):
 
 
 class ServiceSummaryResponse(BaseModel):
-    """Condensed service representation used in list endpoints."""
+    """Représentation condensée d'un service utilisée dans les endpoints de liste."""
 
     id: str
     name: str
@@ -115,7 +124,7 @@ class ServiceSummaryResponse(BaseModel):
 
 
 class ServicePricingResponse(BaseModel):
-    """Pricing details for a service."""
+    """Détails de tarification d'un service."""
 
     price_type: str
     price_amount: Decimal | None

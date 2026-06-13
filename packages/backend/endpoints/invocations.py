@@ -1,3 +1,19 @@
+"""API REST des invocations.
+
+Pilote le cycle de vie d'une invocation de service :
+  1. `invoke_service` enregistre une Invocation, la relaie au gateway
+     (gRPC InvokeService) et stocke le `job_id` renvoyé.
+  2. Le nœud exécute le job de façon asynchrone ; le statut est réconcilié soit par
+     le poller d'arrière-plan (voir main.py), soit par le flux WebSocket (voir
+     ws.py), soit paresseusement à la lecture via `refresh_invocation_status`.
+  3. Les fichiers de résultat/artefact produits par le fournisseur sont relayés au
+     navigateur via cette API, de sorte que le frontend ne dialogue jamais
+     directement avec le stockage du fournisseur.
+
+Les statuts de job du nœud sont mappés sur les valeurs `InvocationStatus` de la
+marketplace via `_JOB_STATUS_MAP`.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["invocations"])
 
-# Mapping from node job statuses to marketplace invocation statuses
+# Mapping des statuts de job du nœud vers les statuts d'invocation de la marketplace
 _JOB_STATUS_MAP = {
     "available": InvocationStatus.accepted.value,
     "assigned": InvocationStatus.accepted.value,
@@ -41,13 +57,22 @@ _JOB_STATUS_MAP = {
 
 
 def _estimate_cost(service: Service) -> Decimal | None:
-    """Compute a cost estimate based on the service pricing model."""
+    """Calcule une estimation de coût a priori à partir du modèle de tarification du service.
+
+    Arguments :
+        service: Le service en cours d'invocation.
+
+    Retourne :
+        `Decimal("0")` pour les services gratuits, le prix fixe pour une tarification
+        fixe, ou None pour une tarification au temps (coût inconnu tant que le job
+        n'est pas terminé).
+    """
     price_type = service.price_type
     if price_type == PriceType.free.value:
         return Decimal("0")
     if price_type == PriceType.fixed.value:
         return service.price_amount
-    # time-based: cost depends on execution duration, unknown upfront
+    # au temps : le coût dépend de la durée d'exécution, inconnu a priori
     return None
 
 
@@ -56,7 +81,22 @@ async def refresh_invocation_status(
     grpc_channel: grpc.aio.Channel,
     db: AsyncSession,
 ) -> None:
-    """Poll the gateway for job status and update the invocation."""
+    """Interroge le gateway une fois pour le statut du job et réconcilie la ligne d'invocation.
+
+    Lit le dernier statut/les URLs/horodatages du job depuis le gateway et réécrit
+    tout changement, en committant uniquement si quelque chose a réellement changé.
+    Pour les jobs au temps réussis, finalise `cost_final` depuis l'estimation.
+    Ne fait rien si l'invocation n'a pas encore de `job_id`, et les erreurs du
+    gateway sont journalisées et avalées.
+
+    Arguments :
+        invocation: L'invocation à rafraîchir (mutée sur place en cas de changement).
+        grpc_channel: Canal ouvert vers le gateway.
+        db: Session utilisée pour committer les éventuels changements.
+
+    Retourne :
+        None.
+    """
     if not invocation.job_id:
         return
 
@@ -107,7 +147,7 @@ async def refresh_invocation_status(
     if not changed:
         return
 
-    # Compute final cost for time-based pricing
+    # Calcule le coût final pour la tarification au temps
     if (
         new_status == InvocationStatus.succeeded.value
         and invocation.cost_estimated is not None
@@ -127,6 +167,22 @@ async def refresh_invocation_status(
 
 
 async def _fetch_provider_url(url: str) -> tuple[bytes, str, str | None]:
+    """Télécharge un objet du fournisseur (résultat/artefact) en HTTP, hors de la boucle d'événements.
+
+    L'appel bloquant `urllib` est exécuté dans un thread pour ne pas bloquer le
+    serveur asynchrone. Les erreurs HTTP et réseau sont traduites en HTTPException.
+
+    Arguments :
+        url: URL complète de l'objet du fournisseur à récupérer (GET).
+
+    Retourne :
+        Un tuple `(body, content_type, content_disposition)` ; la disposition est
+        None quand le fournisseur n'en a pas envoyé.
+
+    Lève :
+        HTTPException: le statut amont sur erreur HTTP, ou 502 sur échec
+            réseau/timeout.
+    """
     def _fetch() -> tuple[bytes, str, str | None]:
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -154,6 +210,20 @@ def _content_disposition_with_filename(
     url: str,
     fallback_filename: str,
 ) -> str:
+    """Construit un en-tête Content-Disposition qui porte toujours un nom de fichier.
+
+    Si le fournisseur a déjà fourni un `filename`, son en-tête est transmis tel
+    quel. Sinon, un nom de fichier est dérivé du chemin de l'URL (en repli sur
+    `fallback_filename`) et assaini pour être sûr dans l'en-tête.
+
+    Arguments :
+        content_disposition: Le Content-Disposition du fournisseur, le cas échéant.
+        url: URL source, utilisée pour dériver un nom de fichier s'il en manque un.
+        fallback_filename: Nom à utiliser quand l'URL ne donne rien d'exploitable.
+
+    Retourne :
+        Une valeur d'en-tête Content-Disposition contenant un nom de fichier entre guillemets.
+    """
     if content_disposition and re.search(r"\bfilename\*?=", content_disposition, re.I):
         return content_disposition
 
@@ -174,6 +244,23 @@ async def _get_refreshed_invocation(
     request: Request,
     db: AsyncSession,
 ) -> Invocation:
+    """Charge une invocation, en rafraîchissant son statut depuis le gateway si en cours.
+
+    Partagée par les endpoints de lecture : si l'invocation est encore
+    acceptée/en cours, elle est réconciliée face au gateway avant d'être renvoyée
+    afin que les appelants voient l'état le plus frais.
+
+    Arguments :
+        invocation_id: ID de l'invocation à charger.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        L'Invocation (éventuellement tout juste rafraîchie).
+
+    Lève :
+        HTTPException: 404 si aucune invocation ne correspond à l'ID.
+    """
     result = await db.execute(select(Invocation).where(Invocation.id == invocation_id))
     invocation = result.scalar_one_or_none()
     if invocation is None:
@@ -193,7 +280,25 @@ async def invoke_service(
     body: InvokeServiceRequest,
     db: AsyncSession = Depends(get_db),
 ) -> Invocation:
-    """Create a new invocation of a marketplace service."""
+    """Crée une nouvelle invocation d'un service de la marketplace et la dépêche.
+
+    Persiste une invocation `pending`, puis la relaie au gateway. En cas de succès,
+    l'invocation est marquée `accepted` avec le `job_id` renvoyé ; en cas d'erreur
+    du gateway, elle est marquée `failed` avec le message d'erreur. Dans tous les
+    cas, la ligne d'invocation est renvoyée (les échecs sont enregistrés, pas levés).
+
+    Arguments :
+        slug: Slug du service à invoquer.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        body: Payload d'entrée de l'invocation.
+        db: Session de base de données injectée.
+
+    Retourne :
+        L'Invocation créée (HTTP 201), dans l'état `accepted` ou `failed`.
+
+    Lève :
+        HTTPException: 404 si le service est inconnu ; 403 s'il n'est pas public.
+    """
     result = await db.execute(select(Service).where(Service.slug == slug))
     service = result.scalar_one_or_none()
     if service is None:
@@ -215,8 +320,8 @@ async def invoke_service(
     await db.commit()
     await db.refresh(invocation)
 
-    # Forward invocation to the gateway → scheduler.
-    # Execution config now lives on the provider node; send input_payload as-is.
+    # Relaie l'invocation au gateway → scheduler.
+    # La config d'exécution vit désormais sur le nœud fournisseur ; envoie input_payload tel quel.
     stub = gateway_pb2_grpc.GatewayServiceStub(request.app.state.grpc_channel)
     payload_struct = Struct()
     payload_struct.update(body.input_payload)
@@ -266,7 +371,18 @@ async def list_invocations(
     per_page: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedResponse[InvocationResponse]:
-    """List invocations with optional filters."""
+    """Liste les invocations avec des filtres optionnels, les plus récentes d'abord.
+
+    Arguments :
+        status: Filtre de statut exact optionnel.
+        service_id: Filtre optionnel sur les invocations d'un seul service.
+        page: Numéro de page (base 1).
+        per_page: Taille de page (1–100).
+        db: Session de base de données injectée.
+
+    Retourne :
+        Un PaginatedResponse d'éléments InvocationResponse plus les métadonnées de pagination.
+    """
     query = select(Invocation)
 
     if status:
@@ -301,7 +417,19 @@ async def get_invocation(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Invocation:
-    """Return a single invocation by ID, auto-refreshing status if pending."""
+    """Renvoie une invocation unique par ID, en rafraîchissant le statut si encore en cours.
+
+    Arguments :
+        invocation_id: ID depuis le chemin d'URL.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        L'Invocation (sérialisée en InvocationResponse).
+
+    Lève :
+        HTTPException: 404 si aucune invocation ne correspond à l'ID.
+    """
     return await _get_refreshed_invocation(invocation_id, request, db)
 
 
@@ -311,7 +439,19 @@ async def get_invocation_result(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> InvocationResultResponse:
-    """Return the result summary for a completed invocation."""
+    """Renvoie le résumé de résultat (statut, URLs, coût final) d'une invocation.
+
+    Arguments :
+        invocation_id: ID depuis le chemin d'URL.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Un InvocationResultResponse construit depuis l'invocation (rafraîchie).
+
+    Lève :
+        HTTPException: 404 si aucune invocation ne correspond à l'ID.
+    """
     invocation = await _get_refreshed_invocation(invocation_id, request, db)
     return InvocationResultResponse.model_validate(invocation)
 
@@ -322,7 +462,23 @@ async def get_invocation_result_file(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Proxy a provider result object through the marketplace API for browsers."""
+    """Relaie l'objet de résultat du fournisseur via l'API de la marketplace.
+
+    Le relais évite au navigateur d'avoir besoin d'un accès direct au stockage du
+    fournisseur et préserve le type de contenu/la disposition amont.
+
+    Arguments :
+        invocation_id: ID depuis le chemin d'URL.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Une Response portant les octets bruts du résultat avec le type de contenu amont.
+
+    Lève :
+        HTTPException: 404 si l'invocation ou son URL de résultat est absente ; 502
+            sur échec de récupération chez le fournisseur.
+    """
     invocation = await _get_refreshed_invocation(invocation_id, request, db)
     if not invocation.result_url:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Result not available")
@@ -340,7 +496,23 @@ async def get_invocation_artifact(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Proxy a provider artifact object through the marketplace API for browsers."""
+    """Relaie le fichier artefact du fournisseur via l'API de la marketplace.
+
+    Comme l'endpoint de résultat, mais pose toujours un Content-Disposition avec un
+    nom de fichier de téléchargement raisonnable (en repli sur `<service-slug>-artifact`).
+
+    Arguments :
+        invocation_id: ID depuis le chemin d'URL.
+        request: Requête FastAPI, utilisée pour atteindre le canal gRPC partagé.
+        db: Session de base de données injectée.
+
+    Retourne :
+        Une Response portant les octets de l'artefact avec un en-tête de nom de fichier.
+
+    Lève :
+        HTTPException: 404 si l'invocation ou son URL d'artefact est absente ; 502
+            sur échec de récupération chez le fournisseur.
+    """
     invocation = await _get_refreshed_invocation(invocation_id, request, db)
     if not invocation.artifact_url:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artifact not available")

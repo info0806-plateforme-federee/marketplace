@@ -1,3 +1,10 @@
+<!--
+@component
+Barre de navigation supérieure : lien de marque, liens de navigation principaux
+(mettant en évidence la route active), un sélecteur de locale, une bascule de mode
+sombre, et un menu mobile repliable. Les liens sont construits avec `localizeHref`
+pour porter la locale courante.
+-->
 <script lang="ts">
     import { page } from '$app/state';
     import { theme } from '$lib/theme.svelte';
@@ -16,12 +23,14 @@
 
     let locale = $state(getLocale());
 
+    /** Indique si `href` correspond à la route courante (correspondance exacte ; `/` est un cas particulier). */
     function isActive(href: string): boolean {
         const path = page.url.pathname;
         if (href === '/') return path === '/';
         return path === href;
     }
 
+    /** Bascule entre le français et l'anglais (les boutons du sélecteur de locale appellent setLocale directement). */
     function toggleLocale() {
         const next = locale === 'fr' ? 'en' : 'fr';
         locale = next;
@@ -32,12 +41,12 @@
 <nav class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
-            <!-- Brand -->
+            <!-- Marque -->
             <a href={localizeHref('/')} class="text-xl font-bold font-title text-foreground">
                 Marketplace
             </a>
 
-            <!-- Desktop nav -->
+            <!-- Navigation bureau -->
             <div class="hidden md:flex items-center gap-1">
                 {#each links as link}
                     <a
@@ -49,9 +58,9 @@
                 {/each}
             </div>
 
-            <!-- Right side -->
+            <!-- Côté droit -->
             <div class="flex items-center gap-2">
-                <!-- Locale switcher -->
+                <!-- Sélecteur de locale -->
                 <div class="flex items-center gap-1">
                     {#each locales as locale}
                         <button
@@ -63,7 +72,7 @@
                     {/each}
                 </div>
 
-                <!-- Dark mode toggle -->
+                <!-- Bascule mode sombre -->
                 <button
                     onclick={() => theme.toggle()}
                     class="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -80,7 +89,7 @@
                     {/if}
                 </button>
 
-                <!-- Mobile hamburger -->
+                <!-- Hamburger mobile -->
                 <button
                     onclick={() => (mobileOpen = !mobileOpen)}
                     class="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -97,7 +106,7 @@
             </div>
         </div>
 
-        <!-- Mobile nav -->
+        <!-- Navigation mobile -->
         {#if mobileOpen}
             <div class="md:hidden pb-4 space-y-1">
                 {#each links as link}

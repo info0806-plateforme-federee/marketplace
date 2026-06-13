@@ -1,3 +1,8 @@
+<!--
+@component
+Spinner de chargement animé (SVG) en trois `size`s. Porte `role="status"` pour les
+technologies d'assistance.
+-->
 <script lang="ts">
     interface Props {
         size?: 'sm' | 'md' | 'lg';

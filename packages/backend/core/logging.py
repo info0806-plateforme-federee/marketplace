@@ -1,3 +1,11 @@
+"""Configuration de la journalisation.
+
+Configure `structlog` pour que toute l'application émette des lignes de log JSON
+structurées sur stdout (un objet par ligne), ce qui est pratique pour les
+collecteurs de logs de conteneurs. Appeler `setup_logging()` une seule fois au
+démarrage du processus avant de créer des loggers.
+"""
+
 import logging
 import sys
 
@@ -5,7 +13,16 @@ import structlog
 
 
 def setup_logging() -> None:
-    """Configure structlog for JSON output to stdout."""
+    """Configure structlog + la journalisation standard pour une sortie JSON sur stdout.
+
+    Achemine le logger racine de la bibliothèque standard via un formateur JSON
+    structlog, fixe le niveau à INFO et fait taire le logger d'accès d'uvicorn.
+    Modifie l'état global de journalisation et doit être appelée exactement une fois
+    au démarrage.
+
+    Retourne :
+        None.
+    """
 
     structlog.configure(
         processors=[

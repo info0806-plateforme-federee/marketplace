@@ -1,3 +1,8 @@
+<!--
+@component
+Grille responsive de `ServiceCard` pour une liste de services (1/2/3 colonnes
+selon le point de rupture).
+-->
 <script lang="ts">
     import type { ServiceSummary } from '$lib/types/marketplace';
     import ServiceCard from './ServiceCard.svelte';

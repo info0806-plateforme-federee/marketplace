@@ -1,3 +1,10 @@
+/**
+ * Loader de la page catalogue de services.
+ *
+ * Traduit la chaîne de requête de l'URL (recherche/catégorie/type/prix/page) en
+ * filtres d'API et récupère une page de services. Garder les filtres dans l'URL
+ * rend le listage partageable et ajoutable aux favoris.
+ */
 import type { PageServerLoad } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';

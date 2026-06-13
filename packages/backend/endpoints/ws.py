@@ -1,3 +1,15 @@
+"""WebSocket de statut d'invocation.
+
+Pousse le statut d'invocation en direct vers le frontend. L'endpoint fait le pont
+entre un appel gRPC en streaming serveur (gateway `StreamJobStatus`) et une
+WebSocket : chaque mise à jour de job est mappée vers un `InvocationStatus`,
+persistée sur la ligne d'invocation et transmise au client en JSON jusqu'à
+atteindre un état terminal.
+
+C'est la contrepartie en mode push de `refresh_invocation_status` (mode poll) dans
+`invocations.py`.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Statut de job du nœud -> statut d'invocation de la marketplace.
 _JOB_STATUS_MAP = {
     "available": InvocationStatus.accepted.value,
     "assigned": InvocationStatus.accepted.value,
@@ -24,6 +37,7 @@ _JOB_STATUS_MAP = {
     "failed": InvocationStatus.failed.value,
 }
 
+# Statuts après lesquels aucune mise à jour n'est possible ; le flux se ferme.
 _TERMINAL_STATUSES = frozenset({
     InvocationStatus.succeeded.value,
     InvocationStatus.failed.value,
@@ -33,14 +47,25 @@ _TERMINAL_STATUSES = frozenset({
 
 @router.websocket("/api/invocations/{invocation_id}/ws")
 async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> None:
-    """Stream real-time invocation status updates via WebSocket.
+    """Diffuse en temps réel les mises à jour de statut d'invocation via une WebSocket.
 
-    Opens a gRPC server-streaming call to the gateway's StreamJobStatus
-    and forwards each update as a JSON message to the WebSocket client.
+    Ouvre un appel gRPC en streaming serveur vers le `StreamJobStatus` du gateway et
+    transmet chaque mise à jour en message JSON au client, en persistant les
+    changements sur la ligne d'invocation au fil de l'eau. Court-circuite si
+    l'invocation est absente, n'a pas de job, ou est déjà terminale. Ferme le socket
+    dès qu'un statut terminal est atteint ; les déconnexions du client et les erreurs
+    de flux sont capturées et journalisées.
+
+    Arguments :
+        websocket: La connexion WebSocket client acceptée.
+        invocation_id: ID de l'invocation à suivre (depuis le chemin d'URL).
+
+    Retourne :
+        None. La fonction retourne quand le flux se termine ou que le socket se ferme.
     """
     await websocket.accept()
 
-    # Look up the invocation to get the job_id.
+    # Recherche l'invocation pour obtenir le job_id.
     async with async_session_factory() as session:
         result = await session.execute(
             select(Invocation).where(Invocation.id == invocation_id)
@@ -57,7 +82,7 @@ async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> 
         await websocket.close(code=4004)
         return
 
-    # If already terminal, send final state and close.
+    # Si déjà terminale, envoie l'état final et ferme.
     if invocation.status in _TERMINAL_STATUSES:
         await websocket.send_json({
             "invocation_id": invocation.id,
@@ -87,7 +112,7 @@ async def invocation_status_stream(websocket: WebSocket, invocation_id: str) -> 
         async for update in stream:
             new_status = _JOB_STATUS_MAP.get(update.status, invocation.status)
 
-            # Persist status change to the invocation.
+            # Persiste le changement de statut sur l'invocation.
             async with async_session_factory() as session:
                 result = await session.execute(
                     select(Invocation).where(Invocation.id == invocation_id)

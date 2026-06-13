@@ -1,3 +1,13 @@
+/**
+ * Loader de la page d'édition de service + action de formulaire.
+ *
+ * `load` récupère le service (y compris privé, via `includePrivate=true`) pour que
+ * le propriétaire puisse l'éditer. L'action par défaut construit une mise à jour
+ * partielle à partir des seuls champs de formulaire non vides — en parsant les tags
+ * (CSV → tableau), les champs de schéma (JSON) et les champs numériques — puis PATCH
+ * le service et redirige vers sa page de détail ; les erreurs de validation/d'API
+ * sont renvoyées via `fail`.
+ */
 import type { PageServerLoad, Actions } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';

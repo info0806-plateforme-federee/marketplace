@@ -1,3 +1,11 @@
+<!--
+@component
+Formulaire d'invocation de service : une zone de texte `input_payload` JSON
+(pré-remplie depuis le schéma d'entrée du service), le badge de tarification, et des
+afficheurs de schéma. La soumission POST vers l'action de formulaire de cette route
+(améliorée progressivement via `use:enhance`) ; `form` rapporte toute erreur de
+validation.
+-->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import { localizeHref } from '$lib/paraglide/runtime';
@@ -12,7 +20,7 @@
 	let { data, form } = $props();
 	let service = $derived(data.service);
 
-	// Pre-fill the textarea with a JSON template derived from the input schema.
+	// Pré-remplit la zone de texte avec un gabarit JSON dérivé du schéma d'entrée.
 	let defaultPayload = $derived(
 		JSON.stringify(
 			Object.fromEntries(

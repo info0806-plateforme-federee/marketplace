@@ -1,3 +1,11 @@
+"""Modèle ORM Site.
+
+Un `Site` est un nœud de la fédération : soit l'instance locale de la marketplace,
+soit un pair distant qui fournit/consomme des services. `grpc_endpoint` indique où
+joindre son gateway, et `trusted` marque les sites dont les services peuvent être
+invoqués sans vérification supplémentaire.
+"""
+
 from __future__ import annotations
 
 import enum
@@ -11,7 +19,7 @@ from core.database import Base
 
 
 class SiteStatus(str, enum.Enum):
-    """Status values for a federated site."""
+    """Valeurs de statut d'un site fédéré."""
 
     active = "active"
     inactive = "inactive"
@@ -19,7 +27,7 @@ class SiteStatus(str, enum.Enum):
 
 
 class Site(Base):
-    """A federated site registered in the marketplace."""
+    """Un site fédéré enregistré dans la marketplace."""
 
     __tablename__ = "sites"
 

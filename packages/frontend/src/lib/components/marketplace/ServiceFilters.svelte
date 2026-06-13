@@ -1,3 +1,12 @@
+<!--
+@component
+Barre de filtres pour le catalogue de services (recherche + sélecteurs
+catégorie/type/prix). Les filtres actifs vivent dans la chaîne de requête de
+l'URL : en modifier un navigue avec les params mis à jour (en réinitialisant la
+page), donc le `load` du catalogue se relance côté serveur. Les valeurs courantes
+sont dérivées de l'URL pour que les contrôles restent synchronisés à la navigation
+avant/arrière.
+-->
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { page } from '$app/state';
@@ -29,6 +38,7 @@
         { value: 'time', label: 'Time-based' },
     ]);
 
+    /** Pose/efface un param de requête et navigue ; réinitialise la pagination à la page 1. */
     function updateFilter(key: string, value: string) {
         const params = new URLSearchParams(page.url.searchParams);
         if (value) {
@@ -40,6 +50,7 @@
         goto(`?${params.toString()}`, { replaceState: true, keepFocus: true });
     }
 
+    /** Abandonne tous les filtres en naviguant vers le chemin nu. */
     function clearFilters() {
         goto(page.url.pathname, { replaceState: true });
     }

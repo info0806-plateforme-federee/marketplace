@@ -1,3 +1,9 @@
+<!--
+@component
+Affiche le prix d'un service en badge coloré, en choisissant le libellé selon
+`priceType` (gratuit / fixe / au temps) et en se rabattant sur « non défini »
+quand un montant est requis mais absent.
+-->
 <script lang="ts">
     import * as m from '$lib/paraglide/messages';
     import Badge from '$lib/components/ui/Badge.svelte';

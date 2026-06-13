@@ -1,3 +1,22 @@
+"""Services de démonstration intégrés et leur logique de seeding.
+
+Définit trois services de démonstration autonomes et les seede au démarrage pour
+qu'un déploiement neuf ait quelque chose à exécuter :
+  - Nettoyage CSV (CPU, Python inline)
+  - Benchmark de stress GPU (nécessite un worker GPU)
+  - Rendu 3D (CPU, raymarcher sans dépendance)
+
+Chaque démo a deux parties :
+  - un dict de *fixture de service* — la ligne de catalogue écrite dans cette base
+    (`seed_demo_services` → `_upsert_service`), et
+  - un dict de *config d'exécution* — image/code/commande/ressources enregistrés
+    sur le nœud fournisseur via gRPC (`register_demo_execution_configs`).
+
+Les grandes chaînes `*_CODE` sont les scripts de job qui s'exécutent dans le
+conteneur ; ce sont des payloads, pas une partie du runtime de ce service. On
+active les démos seedées via `settings.fixtures`.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -386,8 +405,8 @@ GPU_STRESS_EXECUTION_CONFIG: dict[str, Any] = {
     "image": GPU_STRESS_IMAGE,
     "code": GPU_STRESS_CODE,
     "command": "python /workspace/run.py",
-    # Intentionally small defaults so an empty invocation payload still runs;
-    # increase matrix_size/iterations for a real stress run.
+    # Valeurs par défaut volontairement petites pour qu'un payload d'invocation vide
+    # s'exécute quand même ; augmenter matrix_size/iterations pour un vrai stress.
     "default_args": {
         "matrix_size": 2048,
         "iterations": 3,
@@ -759,6 +778,20 @@ RENDER_3D_EXECUTION_CONFIG: dict[str, Any] = {
 
 
 async def _upsert_service(session: AsyncSession, fixture: dict[str, Any]) -> Service:
+    """Insère ou met à jour une ligne de catalogue depuis une fixture de service de démo.
+
+    Recherche le service par slug : s'il est absent il est créé, sinon ses colonnes
+    sont écrasées depuis la fixture (gardant les démos synchronisées avec les
+    changements de code). Le site fournisseur est forcé à cette instance, et un
+    `price_amount` en chaîne est converti en Decimal.
+
+    Arguments :
+        session: Session de base de données active (committée avant de retourner).
+        fixture: Une définition de service de démo (les dicts `*_SERVICE` ci-dessus).
+
+    Retourne :
+        La ligne Service créée ou mise à jour.
+    """
     result = await session.execute(select(Service).where(Service.slug == fixture["slug"]))
     service = result.scalar_one_or_none()
 
@@ -791,6 +824,23 @@ async def _register_execution_config(
     slug: str,
     config: dict[str, Any],
 ) -> None:
+    """Enregistre la config d'exécution d'une démo sur le nœud fournisseur via le gateway.
+
+    Reflète l'endpoint HTTP `register_execution_config` : seuls les champs proto
+    optionnels présents dans `config` sont posés. Borné par un timeout de 10 s.
+
+    Arguments :
+        grpc_channel: Canal ouvert vers le gateway.
+        slug: Slug du service auquel appartient la config.
+        config: Dict de config d'exécution (les dicts `*_EXECUTION_CONFIG` ci-dessus).
+
+    Retourne :
+        None.
+
+    Lève :
+        asyncio.TimeoutError: si l'appel au gateway dépasse le timeout.
+        grpc.RpcError: sur erreur gateway/transport.
+    """
     stub = gateway_pb2_grpc.GatewayServiceStub(grpc_channel)
     request = gateway_pb2.RegisterServiceConfigRequest(
         service_slug=slug,
@@ -819,7 +869,13 @@ async def _register_execution_config(
 
 
 def _enabled_fixtures() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
-    """Return (slug, service_fixture, execution_config) for each enabled demo."""
+    """Collecte les démos activées par la configuration.
+
+    Retourne :
+        Une liste de tuples `(slug, service_fixture, execution_config)` — un par
+        démo dont la bascule est activée. Vide si les fixtures sont entièrement
+        désactivées.
+    """
     fixtures: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
     if not settings.fixtures.enabled:
         return fixtures
@@ -841,7 +897,14 @@ def _enabled_fixtures() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
 async def seed_demo_services(
     session: AsyncSession,
 ) -> None:
-    """Seed demo marketplace service catalog rows."""
+    """Seede/rafraîchit les lignes de catalogue de chaque service de démo activé.
+
+    Arguments :
+        session: Session de base de données active.
+
+    Retourne :
+        None.
+    """
     for _slug, service_fixture, _config in _enabled_fixtures():
         await _upsert_service(session, service_fixture)
 
@@ -851,7 +914,20 @@ async def register_demo_execution_configs(
     attempts: int = 6,
     delay_s: float = 5.0,
 ) -> None:
-    """Register demo provider execution configs without blocking app startup."""
+    """Enregistre la config d'exécution de chaque démo activée sur le nœud fournisseur.
+
+    S'exécute comme tâche d'arrière-plan au démarrage et réessaie par démo, car le
+    nœud peut ne pas être joignable à l'instant où la marketplace démarre. L'épuisement
+    des réessais pour une démo est journalisé et n'interrompt pas les autres.
+
+    Arguments :
+        grpc_channel: Canal ouvert vers le gateway.
+        attempts: Nombre max de tentatives d'enregistrement par démo.
+        delay_s: Secondes à attendre entre les tentatives.
+
+    Retourne :
+        None.
+    """
     for slug, _service_fixture, config in _enabled_fixtures():
         for attempt in range(1, attempts + 1):
             try:

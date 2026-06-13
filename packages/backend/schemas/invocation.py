@@ -1,3 +1,10 @@
+"""Schémas Pydantic de requête/réponse pour l'API des invocations.
+
+`InvokeServiceRequest` est le payload d'entrée soumis par un consommateur ; les
+schémas de réponse (`InvocationResponse`, `InvocationResultResponse`) sont
+construits depuis les lignes ORM `Invocation` via `from_attributes = True`.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,13 +16,13 @@ from models.invocation import InvocationStatus
 
 
 class InvokeServiceRequest(BaseModel):
-    """Payload for invoking a marketplace service."""
+    """Payload pour invoquer un service de la marketplace."""
 
     input_payload: dict = {}
 
 
 class InvocationResponse(BaseModel):
-    """Full representation of an invocation returned to clients."""
+    """Représentation complète d'une invocation renvoyée aux clients."""
 
     id: str
     service_id: str
@@ -39,7 +46,7 @@ class InvocationResponse(BaseModel):
 
 
 class InvocationResultResponse(BaseModel):
-    """Result summary for a completed invocation."""
+    """Résumé de résultat pour une invocation terminée."""
 
     status: InvocationStatus
     result_url: str | None

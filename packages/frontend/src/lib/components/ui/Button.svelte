@@ -1,3 +1,9 @@
+<!--
+@component
+Bouton réutilisable. Rend un `<a>` quand `href` est fourni, sinon un `<button>`.
+Les classes Tailwind sont composées depuis les props `variant` et `size` (plus
+toute `class` supplémentaire). Le snippet requis `children` est le libellé du bouton.
+-->
 <script lang="ts">
     import type { Snippet } from 'svelte';
 

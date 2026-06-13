@@ -1,3 +1,8 @@
+<!--
+@component
+Espace réservé affiché quand une liste/section n'a pas de données : une icône, un
+`message`, et un slot `children` optionnel pour un appel à l'action (p. ex. un bouton).
+-->
 <script lang="ts">
     import type { Snippet } from 'svelte';
 

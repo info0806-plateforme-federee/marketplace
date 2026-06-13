@@ -1,3 +1,9 @@
+<!--
+@component
+Curseur de plage avec affichage en direct de la valeur (et `unit` optionnelle).
+`value` est `bind:`-able ; un input caché le reflète pour que la valeur soit
+envoyée avec le formulaire.
+-->
 <script lang="ts">
 	interface Props {
 		name: string;

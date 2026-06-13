@@ -1,3 +1,12 @@
+"""Modèle ORM Service.
+
+Un `Service` est une entrée de catalogue annoncée dans la marketplace : ce qu'il
+fait, qui le fournit, comment il est tarifé, et les schémas JSON d'entrée/sortie
+qu'un consommateur doit respecter lors de l'invocation. Les enums ci-dessous
+contraignent les colonnes stockées en simples chaînes (gardées en chaînes plutôt
+qu'en enums SQL pour que les valeurs puissent évoluer sans migration).
+"""
+
 from __future__ import annotations
 
 import enum
@@ -6,14 +15,14 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB  # retained for tags / input_schema / output_schema
+from sqlalchemy.dialects.postgresql import JSONB  # conservé pour tags / input_schema / output_schema
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
 
 
 class ServiceStatus(str, enum.Enum):
-    """Publication status of a service."""
+    """Statut de publication d'un service."""
 
     active = "active"
     disabled = "disabled"
@@ -22,7 +31,7 @@ class ServiceStatus(str, enum.Enum):
 
 
 class ServiceType(str, enum.Enum):
-    """Category of computation a service provides."""
+    """Catégorie de calcul fournie par un service."""
 
     compute = "compute"
     data = "data"
@@ -31,7 +40,7 @@ class ServiceType(str, enum.Enum):
 
 
 class PriceType(str, enum.Enum):
-    """Billing model for a service."""
+    """Modèle de facturation d'un service."""
 
     free = "free"
     fixed = "fixed"
@@ -39,7 +48,7 @@ class PriceType(str, enum.Enum):
 
 
 class Visibility(str, enum.Enum):
-    """Access level for a service."""
+    """Niveau d'accès d'un service."""
 
     public = "public"
     private = "private"
@@ -47,19 +56,23 @@ class Visibility(str, enum.Enum):
 
 
 class ExecutionMode(str, enum.Enum):
-    """Whether the service runs synchronously or asynchronously."""
+    """Indique si le service s'exécute de façon synchrone ou asynchrone."""
 
     sync = "sync"
     async_ = "async"
 
 
 class Service(Base):
-    """A service listed in the federated marketplace catalog."""
+    """Un service listé dans le catalogue de la marketplace fédérée."""
 
     __tablename__ = "services"
+    # `slug` est l'identifiant lisible et compatible URL utilisé dans les chemins d'API.
     __table_args__ = (UniqueConstraint("slug", name="uq_services_slug"),)
 
+    # uuid7 est ordonné dans le temps, donc les clés primaires se trient aussi
+    # approximativement par date de création.
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid7()))
+    # Site qui possède/héberge ce service (le fournisseur dans la fédération).
     provider_site_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("sites.id"), nullable=False
     )
@@ -76,6 +89,7 @@ class Service(Base):
     currency: Mapped[str] = mapped_column(String(10), nullable=False, server_default="EUR")
     visibility: Mapped[str] = mapped_column(String(50), nullable=False)
     execution_mode: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Schémas JSON décrivant l'entrée d'invocation attendue et la sortie produite.
     input_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     output_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     max_concurrency: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -89,4 +103,6 @@ class Service(Base):
         onupdate=func.now(),
     )
 
+    # Charge le Site fournisseur en avance via un SELECT séparé pour que les réponses
+    # puissent intégrer les détails du site sans aller-retour de lazy-load dans la session async.
     provider_site: Mapped[Site] = relationship("Site", lazy="selectin")

@@ -1,3 +1,8 @@
+<!--
+@component
+Zone de texte multiligne avec libellé et `error` inline optionnelle. `value` est
+`bind:`-able et `rows` fixe la hauteur visible.
+-->
 <script lang="ts">
 	interface Props {
 		label?: string;

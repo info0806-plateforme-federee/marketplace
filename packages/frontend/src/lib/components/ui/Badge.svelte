@@ -1,3 +1,8 @@
+<!--
+@component
+Petite étiquette en pilule. Le `variant` choisit un jeu de couleurs (p. ex.
+`success`, `warning`, `destructive`) ; `children` est le texte du badge.
+-->
 <script lang="ts">
     import type { Snippet } from 'svelte';
 

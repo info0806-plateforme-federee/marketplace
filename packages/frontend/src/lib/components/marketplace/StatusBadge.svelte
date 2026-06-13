@@ -1,3 +1,8 @@
+<!--
+@component
+Associe une chaîne `status` de service/invocation à un badge coloré et localisé.
+Les statuts inconnus se rabattent sur un badge neutre affichant la valeur brute.
+-->
 <script lang="ts">
     import * as m from '$lib/paraglide/messages';
     import Badge from '$lib/components/ui/Badge.svelte';

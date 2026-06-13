@@ -1,3 +1,12 @@
+"""Modèle ORM Invocation.
+
+Une `Invocation` enregistre une demande d'exécution d'un `Service` : son payload
+d'entrée, le `job_id` back-end renvoyé par le gateway/scheduler, le statut
+évolutif, les URLs de résultat/artefact et le coût estimé vs final. Elle relie
+trois sites — le service, son fournisseur et le consommateur qui a déclenché
+l'exécution.
+"""
+
 from __future__ import annotations
 
 import enum
@@ -13,7 +22,7 @@ from core.database import Base
 
 
 class InvocationStatus(str, enum.Enum):
-    """Lifecycle status of a service invocation."""
+    """Statut du cycle de vie d'une invocation de service."""
 
     pending = "pending"
     accepted = "accepted"
@@ -24,7 +33,7 @@ class InvocationStatus(str, enum.Enum):
 
 
 class Invocation(Base):
-    """A single invocation of a marketplace service."""
+    """Une invocation unique d'un service de la marketplace."""
 
     __tablename__ = "invocations"
 
@@ -38,6 +47,8 @@ class Invocation(Base):
     consumer_site_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("sites.id"), nullable=False
     )
+    # ID du job back-end une fois l'invocation acceptée par le gateway ; null tant
+    # qu'elle est en attente. Sert à interroger/streamer le statut depuis le nœud.
     job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(
         String(50), nullable=False, server_default=InvocationStatus.pending.value
@@ -53,6 +64,9 @@ class Invocation(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
+    # Relations chargées en avance (selectin) pour que les réponses intègrent les
+    # lignes liées sans lazy loading. provider_site et consumer_site pointent tous
+    # deux vers `sites`, donc `foreign_keys` lève l'ambiguïté sur la colonne suivie.
     service: Mapped[Service] = relationship("Service", lazy="selectin")
     provider_site: Mapped[Site] = relationship(
         "Site", foreign_keys=[provider_site_id], lazy="selectin"

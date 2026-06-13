@@ -1,3 +1,9 @@
+<!--
+@component
+Une ligne de la liste des invocations : service, date de création, badge de statut
+et coût. Lien vers la page de détail de l'invocation. Affiche le coût estimé s'il
+est présent, sinon le coût final (ou un tiret cadratin si ni l'un ni l'autre).
+-->
 <script lang="ts">
     import type { Invocation } from '$lib/types/marketplace';
     import { localizeHref } from '$lib/paraglide/runtime';
@@ -9,6 +15,7 @@
 
     let { invocation }: Props = $props();
 
+    /** Formate un horodatage ISO en date-heure localisée courte. */
     function formatDate(iso: string): string {
         return new Date(iso).toLocaleDateString(undefined, {
             year: 'numeric',
@@ -19,6 +26,7 @@
         });
     }
 
+    /** Formate un montant de coût avec sa devise, ou un tiret cadratin si inconnu. */
     function formatCost(amount: number | null, currency: string): string {
         if (amount == null) return '—';
         return `${amount} ${currency}`;

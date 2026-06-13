@@ -1,3 +1,8 @@
+<!--
+@component
+En-tête de page standard : un `title`, un `subtitle` optionnel, et un snippet
+`actions` optionnel (p. ex. des boutons) aligné à droite.
+-->
 <script lang="ts">
     import type { Snippet } from 'svelte';
 

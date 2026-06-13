@@ -1,3 +1,10 @@
+<!--
+@component
+Page de détail d'un service : en-tête avec actions invoquer/retour, badges méta,
+description, schémas d'entrée/sortie, conditions, et une barre latérale de détails.
+`data.service` est fourni par le loader de la route ; `modeLabels`/`visibilityLabels`
+localisent les valeurs d'enum.
+-->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import { localizeHref } from '$lib/paraglide/runtime';
@@ -23,6 +30,7 @@
 		restricted: () => m.visibility_restricted(),
 	};
 
+	/** Formate un horodatage ISO en date longue localisée (sans heure). */
 	function formatDate(iso: string): string {
 		return new Date(iso).toLocaleDateString(undefined, {
 			year: 'numeric',
@@ -47,7 +55,7 @@
 	{/snippet}
 </PageHeader>
 
-<!-- Meta info -->
+<!-- Infos méta -->
 <div class="flex flex-wrap items-center gap-2 mb-6">
 	<StatusBadge status={service.status} />
 	<Badge variant="secondary">{service.category}</Badge>
@@ -65,7 +73,7 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-	<!-- Main content -->
+	<!-- Contenu principal -->
 	<div class="lg:col-span-2 space-y-6">
 		<!-- Description -->
 		{#if service.description}
@@ -74,17 +82,17 @@
 			</Card>
 		{/if}
 
-		<!-- Input Schema -->
+		<!-- Schéma d'entrée -->
 		<Card>
 			<SchemaViewer schema={service.input_schema} title={m.service_input_schema()} />
 		</Card>
 
-		<!-- Output Schema -->
+		<!-- Schéma de sortie -->
 		<Card>
 			<SchemaViewer schema={service.output_schema} title={m.service_output_schema()} />
 		</Card>
 
-		<!-- Terms -->
+		<!-- Conditions -->
 		{#if service.terms_of_use}
 			<Card>
 				<h3 class="text-sm font-semibold text-foreground mb-2">{m.service_terms()}</h3>
@@ -93,7 +101,7 @@
 		{/if}
 	</div>
 
-	<!-- Sidebar -->
+	<!-- Barre latérale -->
 	<div class="space-y-6">
 		<Card>
 			<h3 class="text-sm font-semibold text-foreground mb-3">{m.service_details()}</h3>
@@ -133,7 +141,7 @@
 			</dl>
 		</Card>
 
-		<!-- Tags -->
+		<!-- Tags (étiquettes) -->
 		{#if service.tags.length > 0}
 			<Card>
 				<h3 class="text-sm font-semibold text-foreground mb-2">Tags</h3>

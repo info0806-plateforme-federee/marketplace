@@ -1,3 +1,8 @@
+<!--
+@component
+Champ de saisie texte avec libellé et `error` de validation inline optionnelle.
+`value` est `bind:`-able (bidirectionnel) et un `name` requis relie le libellé au champ.
+-->
 <script lang="ts">
 	interface Props {
 		label?: string;

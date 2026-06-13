@@ -1,3 +1,9 @@
+/**
+ * Loader de la page historique des invocations.
+ *
+ * Charge une page d'invocations, éventuellement filtrées par statut (lu depuis la
+ * chaîne de requête de l'URL), les plus récentes d'abord.
+ */
 import type { PageServerLoad } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';

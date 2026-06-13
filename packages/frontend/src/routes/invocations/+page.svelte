@@ -1,3 +1,9 @@
+<!--
+@component
+Page historique des invocations : un filtre de statut plus une liste paginée de
+lignes d'invocation (ou un état vide). Le filtre de statut et la page sont gardés
+dans l'URL.
+-->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -20,6 +26,7 @@
 		{ value: 'cancelled', label: m.status_cancelled() }
 	];
 
+	/** Applique/efface le filtre de statut, en réinitialisant à la page 1. */
 	function updateStatus(e: Event) {
 		const value = (e.target as HTMLSelectElement).value;
 		const params = new URLSearchParams(page.url.searchParams);
@@ -29,6 +36,7 @@
 		goto(`?${params.toString()}`, { replaceState: true });
 	}
 
+	/** Navigue vers un nouveau numéro de page, en préservant le filtre de statut. */
 	function handlePageChange(newPage: number) {
 		const params = new URLSearchParams(page.url.searchParams);
 		params.set('page', String(newPage));

@@ -1,3 +1,11 @@
+/**
+ * Loader de la page d'invocation de service + action de formulaire.
+ *
+ * `load` récupère le service à invoquer (404 si absent). L'action de formulaire par
+ * défaut parse le `input_payload` JSON, appelle l'endpoint d'invocation, et en cas
+ * de succès redirige vers la page de détail de la nouvelle invocation ; les erreurs
+ * JSON ou d'API sont renvoyées à la page pour affichage.
+ */
 import type { PageServerLoad, Actions } from './$types';
 import { createMarketplaceClient } from '$lib/api';
 import { env } from '$env/dynamic/private';
@@ -38,7 +46,7 @@ export const actions: Actions = {
 			const invocation = await client.invokeService(params.slug, { input_payload });
 			redirect(303, localizeHref(`/invocations/${invocation.id}`));
 		} catch (e) {
-			// Re-throw SvelteKit redirect/error responses (they are thrown internally).
+			// Relance les réponses redirect/error de SvelteKit (elles sont levées en interne).
 			if (
 				e instanceof Response ||
 				(e as { status?: number })?.status === 303

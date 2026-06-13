@@ -1,3 +1,8 @@
+<!--
+@component
+Layout racine enveloppant chaque page : importe les styles globaux, fixe le
+favicon, et rend la `Navbar` partagée au-dessus du contenu de la page (`children`).
+-->
 <script lang="ts">
 	import './layout.css';
 	import '../app.css';

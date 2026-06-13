@@ -1,3 +1,9 @@
+<!--
+@component
+Navigation de pages. Rend précédent/suivant plus des boutons numérotés (en
+compactant le milieu avec des points de suspension), et appelle `onPageChange`
+avec la page choisie. Entièrement masqué quand il n'y a qu'une seule page.
+-->
 <script lang="ts">
     interface Props {
         page: number;

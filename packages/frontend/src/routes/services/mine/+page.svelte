@@ -1,3 +1,9 @@
+<!--
+@component
+Page de gestion « Mes services » : liste les services de ce site (tout
+statut/visibilité) avec des actions Voir/Éditer, ou un état vide invitant
+l'utilisateur à en publier un.
+-->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import { localizeHref } from '$lib/paraglide/runtime';

@@ -1,3 +1,9 @@
+<!--
+@component
+Champ de recherche avec une icône en tête qui appelle `onsearch` avec le texte
+courant, déboucé de 300 ms pour que la frappe ne déclenche pas une requête à
+chaque touche.
+-->
 <script lang="ts">
     interface Props {
         value?: string;
@@ -10,6 +16,7 @@
 
     let timeout: ReturnType<typeof setTimeout>;
 
+    /** Débounce de la saisie : n'émet la dernière valeur que 300 ms après l'arrêt de la frappe. */
     function handleInput(e: Event) {
         const target = e.target as HTMLInputElement;
         clearTimeout(timeout);

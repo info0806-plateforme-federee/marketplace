@@ -1,3 +1,11 @@
+<!--
+@component
+Éditeur de tags. Maintient une liste de tags uniques en minuscules saisis via
+Entrée/virgule (Retour arrière sur un champ vide supprime le dernier) et propose
+des `suggestions` cliquables. La chaîne de tags jointe par des virgules est gardée
+dans `value` (bindable) et reflétée dans un input caché pour être envoyée avec le
+formulaire englobant.
+-->
 <script lang="ts">
 	import Badge from './Badge.svelte';
 
@@ -11,6 +19,7 @@
 
 	let { name, label, value = $bindable(''), placeholder, suggestions = [] }: Props = $props();
 
+	// Initialise la liste de tags depuis la `value` entrante séparée par des virgules.
 	let tags: string[] = $state(
 		value
 			? value
@@ -21,10 +30,12 @@
 	);
 	let inputValue = $state('');
 
+	/** Renvoie les tags courants dans la `value` bindable sous forme de chaîne CSV. */
 	function syncValue() {
 		value = tags.join(', ');
 	}
 
+	/** Ajoute un tag (élagué, en minuscules, dédupliqué) et vide le champ. */
 	function addTag(tag: string) {
 		const trimmed = tag.trim().toLowerCase();
 		if (trimmed && !tags.includes(trimmed)) {
@@ -34,11 +45,13 @@
 		inputValue = '';
 	}
 
+	/** Supprime un tag précis. */
 	function removeTag(tag: string) {
 		tags = tags.filter((t) => t !== tag);
 		syncValue();
 	}
 
+	/** Entrée/virgule valide un tag ; Retour arrière sur un champ vide retire le dernier. */
 	function handleKeydown(e: KeyboardEvent) {
 		if ((e.key === 'Enter' || e.key === ',') && inputValue.trim()) {
 			e.preventDefault();

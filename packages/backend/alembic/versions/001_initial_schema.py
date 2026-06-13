@@ -19,6 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Crée les tables sites, services et invocations avec leurs index."""
     # ------------------------------------------------------------------ sites
     op.create_table(
         "sites",
@@ -95,6 +96,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Supprime les trois tables (et leurs index) dans l'ordre inverse des dépendances."""
     op.drop_index("ix_invocations_status", table_name="invocations")
     op.drop_index("ix_invocations_consumer_site_id", table_name="invocations")
     op.drop_index("ix_invocations_service_id", table_name="invocations")
